@@ -1,0 +1,143 @@
+        1       *================================================================*
+        2       * PROGRAMA : FATFILTR (ESQUELETO PARA A TURMA)                   *
+        3       * AULA     : 7 - COBOL III, ARQUIVOS SEQUENCIAIS                 *
+        4       * OBJETIVO : LER AS TRANSACOES DO DIA (JA ORDENADAS PELO SORT),  *
+        5       *            VALIDAR, CLASSIFICAR E SEPARAR EM DOIS ARQUIVOS:    *
+        6       *            APROVADAS (FORMATO INTERNO, VALOR EM COMP-3) E      *
+        7       *            REJEITADAS (COM MOTIVO).                            *
+        8       * ENTRADA  : DD TRANSIN  - CPTRANS, FB 80                        *
+        9       * SAIDAS   : DD APROVOUT - CPTRANI, FB 80                        *
+       10       *            DD REJEIOUT - CPREJEI, FB 120                       *
+       11       * RETORNO  : 0 = OK, 4 = HOUVE REJEITADAS, 16 = ERRO DE ARQUIVO  *
+       12       *            OU CONTADORES QUE NAO FECHAM                        *
+       13       * O QUE VOCE ESCREVE: A LOGICA DE CADA PARAGRAFO DA PROCEDURE    *
+       14       * DIVISION, NO LUGAR DE CADA CONTINUE. AS DIVISOES DE            *
+       15       * IDENTIFICACAO, AMBIENTE E DADOS JA ESTAO PRONTAS.              *
+       16       * NESTA AULA NAO HA VALIDACAO DO NUMERO DO CARTAO: ELA ENTRA NA  *
+       17       * AULA 9, COM O SUBPROGRAMA LUHNVALD.                            *
+       18       *================================================================*
+       19        IDENTIFICATION DIVISION.
+       20        PROGRAM-ID. FATFILTR.
+       21 
+       22        ENVIRONMENT DIVISION.
+       23        INPUT-OUTPUT SECTION.
+       24        FILE-CONTROL.
+       25            SELECT TRANS-ENTRADA  ASSIGN TO TRANSIN
+       26                   FILE STATUS IS WS-FS-ENTRADA.
+       27            SELECT TRANS-APROVADA ASSIGN TO APROVOUT
+       28                   FILE STATUS IS WS-FS-APROVADA.
+       29            SELECT TRANS-REJEITADA ASSIGN TO REJEIOUT
+       30                   FILE STATUS IS WS-FS-REJEITADA.
+       31 
+       32        DATA DIVISION.
+       33        FILE SECTION.
+       34        FD  TRANS-ENTRADA
+       35            RECORDING MODE IS F.
+       36            COPY CPTRANS.
+       37        FD  TRANS-APROVADA
+       38            RECORDING MODE IS F.
+       39            COPY CPTRANI.
+       40        FD  TRANS-REJEITADA
+       41            RECORDING MODE IS F.
+       42            COPY CPREJEI.
+       43 
+       44        WORKING-STORAGE SECTION.
+       45        01  WS-FS-ENTRADA              PIC X(02).
+       46            88  WS-FS-ENT-OK                     VALUE '00'.
+       47            88  WS-FS-ENT-FIM                    VALUE '10'.
+       48        01  WS-FS-APROVADA             PIC X(02).
+       49            88  WS-FS-APR-OK                     VALUE '00'.
+       50        01  WS-FS-REJEITADA            PIC X(02).
+       51            88  WS-FS-REJ-OK                     VALUE '00'.
+       52 
+       53        01  WS-CONTADORES.
+       54            05  WS-QTD-LIDOS           PIC 9(07) VALUE ZERO.
+       55            05  WS-QTD-APROVADAS       PIC 9(07) VALUE ZERO.
+       56            05  WS-QTD-SUSPEITAS       PIC 9(07) VALUE ZERO.
+       57            05  WS-QTD-REJEITADAS      PIC 9(07) VALUE ZERO.
+       58 
+       59        01  WS-LIMITE-SUSPEITA         PIC 9(09)V99 VALUE 5000.00.
+       60 
+       61        01  WS-VALIDACAO               PIC X(01).
+       62            88  WS-REGISTRO-VALIDO               VALUE 'S'.
+       63            88  WS-REGISTRO-INVALIDO             VALUE 'N'.
+       64 
+       65        01  WS-DATA-VALIDAR.
+       66            05  WS-DV-ANO              PIC 9(04).
+       67            05  WS-DV-MES              PIC 9(02).
+       68                88  WS-MES-VALIDO                VALUE 01 THRU 12.
+       69            05  WS-DV-DIA              PIC 9(02).
+       70                88  WS-DIA-VALIDO                VALUE 01 THRU 31.
+       71 
+       72        PROCEDURE DIVISION.
+       73        0000-PRINCIPAL.
+       74       *    CHAME 1000-INICIALIZAR, DEPOIS 2000-PROCESSAR ATE O FIM DO
+       75       *    ARQUIVO DE ENTRADA (WS-FS-ENT-FIM), DEPOIS 3000-FINALIZAR.
+       76       *    TERMINE COM GOBACK.
+       77            CONTINUE
+       78            GOBACK.
+       79 
+       80        1000-INICIALIZAR.
+       81       *    ABRA TRANS-ENTRADA PARA LEITURA E TRANS-APROVADA E
+       82       *    TRANS-REJEITADA PARA GRAVACAO. DEPOIS DE CADA OPEN, TESTE O
+       83       *    FILE STATUS: SE NAO FOR OK, EXIBA O NOME DO DD E O CODIGO E
+       84       *    EXECUTE 9900-ENCERRAR-COM-ERRO.
+       85       *    TERMINE COM A LEITURA ANTECIPADA (8000-LER-TRANSACAO).
+       86            CONTINUE
+       87            .
+       88 
+       89        2000-PROCESSAR.
+       90       *    VALIDE O REGISTRO LIDO (2100-VALIDAR-TRANSACAO). SE FOR
+       91       *    VALIDO, GRAVE COMO APROVADA (2200); SENAO, COMO REJEITADA
+       92       *    (2300). TERMINE LENDO O PROXIMO REGISTRO (8000).
+       93            CONTINUE
+       94            .
+       95 
+       96        2100-VALIDAR-TRANSACAO.
+       97       *    LIMPE O REG-REJEITADA COM MOVE SPACES (INCLUSIVE O FILLER).
+       98       *    COMECE ASSUMINDO REGISTRO VALIDO. COPIE A DATA PARA
+       99       *    WS-DATA-VALIDAR. COM UM EVALUATE TRUE, NESTA ORDEM, MARQUE
+      100       *    O REGISTRO COMO INVALIDO E PREENCHA O MOTIVO (RJ-COD-MOTIVO
+      101       *    PELOS NIVEIS 88 DO CPREJEI E RJ-DESC-MOTIVO):
+      102       *    1. VALOR NAO NUMERICO      2. VALOR ZERADO
+      103       *    3. DATA NAO NUMERICA, MES OU DIA FORA DA FAIXA
+      104       *    4. TRANSACAO NEGADA NA AUTORIZACAO
+      105       *    ATENCAO: O TESTE DE ZERO SO PODE VIR DEPOIS DO NUMERIC.
+      106            CONTINUE
+      107            .
+      108 
+      109        2200-GRAVAR-APROVADA.
+      110       *    LIMPE O REGISTRO INTERNO (MOVE SPACES E DEPOIS INITIALIZE;
+      111       *    O INITIALIZE SOZINHO NAO LIMPA OS FILLER) E MOVA CADA CAMPO
+      112       *    TR- PARA O CAMPO TI- CORRESPONDENTE (O MOVE DO VALOR CONVERTE
+      113       *    PARA COMP-3). MARQUE TI-SUSPEITA SE A TRANSACAO FOR FORA DO
+      114       *    PAIS E ACIMA DO LIMITE (CONTE AS SUSPEITAS); SENAO,
+      115       *    TI-NORMAL. GRAVE, TESTE O FILE STATUS E CONTE A APROVADA.
+      116            CONTINUE
+      117            .
+      118 
+      119        2300-GRAVAR-REJEITADA.
+      120       *    COPIE O REGISTRO ORIGINAL PARA RJ-REGISTRO-ORIGINAL, GRAVE,
+      121       *    TESTE O FILE STATUS E CONTE A REJEITADA.
+      122            CONTINUE
+      123            .
+      124 
+      125        3000-FINALIZAR.
+      126       *    FECHE OS TRES ARQUIVOS E EXIBA OS CONTADORES. CONFIRA SE
+      127       *    LIDOS = APROVADAS + REJEITADAS. CODIGO DE RETORNO: 16 SE NAO
+      128       *    FECHAR; 4 SE HOUVE REJEITADAS; 0 NOS DEMAIS CASOS.
+      129            CONTINUE
+      130            .
+      131 
+      132        8000-LER-TRANSACAO.
+      133       *    LEIA TRANS-ENTRADA. SO CONTE O REGISTRO LIDO EM NOT AT END.
+      134       *    SE O STATUS NAO FOR OK NEM FIM DE ARQUIVO, EXIBA O NOME DO
+      135       *    DD E O CODIGO E EXECUTE 9900-ENCERRAR-COM-ERRO.
+      136            CONTINUE
+      137            .
+      138 
+      139        9900-ENCERRAR-COM-ERRO.
+      140       *    PRONTO: ENCERRA COM RC 16 PARA IMPEDIR OS STEPS SEGUINTES.
+      141            MOVE 16 TO RETURN-CODE
+      142            STOP RUN
+      143            .

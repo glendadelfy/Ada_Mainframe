@@ -1,0 +1,98 @@
+        1       *================================================================*
+        2       * PROGRAMA : FATJUROS                                            *
+        3       * AULA     : 5 - COBOL I, ANATOMIA DE UM PROGRAMA                *
+        4       * OBJETIVO : CALCULAR O TOTAL DA FATURA DE UM CLIENTE, COM MULTA *
+        5       *            E JUROS SOBRE O SALDO ANTERIOR EM ATRASO.           *
+        6       *            TRADUCAO DIRETA DO PSEUDOCODIGO DA AULA 1.          *
+        7       * REGRAS   : MULTA DE 2% SOBRE O SALDO EM ATRASO.                *
+        8       *            JUROS DE 1% AO MES, PROPORCIONAIS AOS DIAS DE       *
+        9       *            ATRASO (1% / 30 POR DIA).                           *
+       10       * PROJETO  : FATURA NOTURNA - DADOS FICTICIOS                    *
+       11       *================================================================*
+       12        IDENTIFICATION DIVISION.
+       13        PROGRAM-ID. FATJUROS.
+       14 
+       15        ENVIRONMENT DIVISION.
+       16 
+       17        DATA DIVISION.
+       18        WORKING-STORAGE SECTION.
+       19       *--- ENTRADAS (VALORES FIXOS NESTA AULA; ARQUIVOS NA AULA 7) ----*
+       20        01 WS-COMPRAS.
+       21        05 WS-COMPRA-1 PIC 9(07)V99 VALUE 250.00.
+       22        05 WS-COMPRA-2 PIC 9(07)V99 VALUE 1800.00.
+       23        05 WS-COMPRA-3 PIC 9(07)V99 VALUE 450.00.
+       24        05 WS-COMPRA-4 PIC 9(07)V99 VALUE 320.00.
+       25        05 WS-COMPRA-5 PIC 9(07)V99 VALUE 90.00.
+       26 
+       27        01 WS-SALDO-ANTERIOR PIC 9(07)V99 VALUE 800.00.
+       28        01 WS-DIAS-ATRASO PIC 9(03) VALUE 20.
+       29        01 WS-LIMITE PIC 9(07)V99 VALUE 1000.00.
+       30 
+       31       *--- CONSTANTES DE NEGOCIO --------------------------------------*
+       32        01  WS-TAXA-MULTA              PIC V9(04)   VALUE .0200.
+       33        01  WS-TAXA-JUROS-MES          PIC V9(04)   VALUE .0100.
+       34 
+       35       *--- AREAS DE CALCULO -------------------------------------------*
+       36        01  WS-TOTAL-COMPRAS           PIC 9(09)V99 VALUE ZERO.
+       37        01  WS-MULTA                   PIC 9(07)V99 VALUE ZERO.
+       38        01  WS-JUROS                   PIC 9(07)V99 VALUE ZERO.
+       39        01  WS-TOTAL-FATURA            PIC 9(09)V99 VALUE ZERO.
+       40        01  WS-QTD-ACIMA-LIMITE        PIC 9(02)    VALUE ZERO.
+       41 
+       42       *--- CAMPOS EDITADOS PARA EXIBICAO ------------------------------*
+       43        01  WS-VALOR-EDITADO           PIC ZZZ,ZZZ,ZZ9.99.
+       44 
+       45        PROCEDURE DIVISION.
+       46        0000-PRINCIPAL.
+       47            ADD WS-COMPRA-1 WS-COMPRA-2 WS-COMPRA-3
+       48                WS-COMPRA-4 WS-COMPRA-5
+       49                GIVING WS-TOTAL-COMPRAS
+       50 
+       51            IF WS-COMPRA-1 > WS-LIMITE
+       52               ADD 1 TO WS-QTD-ACIMA-LIMITE
+       53            END-IF
+       54            IF WS-COMPRA-2 > WS-LIMITE
+       55               ADD 1 TO WS-QTD-ACIMA-LIMITE
+       56            END-IF
+       57            IF WS-COMPRA-3 > WS-LIMITE
+       58               ADD 1 TO WS-QTD-ACIMA-LIMITE
+       59            END-IF
+       60            IF WS-COMPRA-4 > WS-LIMITE
+       61               ADD 1 TO WS-QTD-ACIMA-LIMITE
+       62            END-IF
+       63            IF WS-COMPRA-5 > WS-LIMITE
+       64               ADD 1 TO WS-QTD-ACIMA-LIMITE
+       65            END-IF
+       66 
+       67            IF WS-DIAS-ATRASO > ZERO
+       68               COMPUTE WS-MULTA ROUNDED =
+       69                       WS-SALDO-ANTERIOR * WS-TAXA-MULTA
+       70               COMPUTE WS-JUROS ROUNDED =
+       71                       WS-SALDO-ANTERIOR * WS-TAXA-JUROS-MES
+       72                       * WS-DIAS-ATRASO / 30
+       73               END-COMPUTE
+       74            END-IF
+       75 
+       76            COMPUTE WS-TOTAL-FATURA =
+       77                    WS-TOTAL-COMPRAS + WS-SALDO-ANTERIOR
+       78                    + WS-MULTA + WS-JUROS
+       79               ON SIZE ERROR
+       80                  DISPLAY 'FATJUROS - ESTOURO NO TOTAL DA FATURA'
+       81                  MOVE 16 TO RETURN-CODE
+       82                  GOBACK
+       83            END-COMPUTE
+       84 
+       85            DISPLAY '=== FATURA DO CLIENTE (DADOS FICTICIOS) ==='
+       86            MOVE WS-TOTAL-COMPRAS  TO WS-VALOR-EDITADO
+       87            DISPLAY 'TOTAL DE COMPRAS ......: ' WS-VALOR-EDITADO
+       88            MOVE WS-SALDO-ANTERIOR TO WS-VALOR-EDITADO
+       89            DISPLAY 'SALDO ANTERIOR ........: ' WS-VALOR-EDITADO
+       90            MOVE WS-MULTA          TO WS-VALOR-EDITADO
+       91            DISPLAY 'MULTA (2%) ............: ' WS-VALOR-EDITADO
+       92            MOVE WS-JUROS          TO WS-VALOR-EDITADO
+       93            DISPLAY 'JUROS PRO RATA ........: ' WS-VALOR-EDITADO
+       94            MOVE WS-TOTAL-FATURA   TO WS-VALOR-EDITADO
+       95            DISPLAY 'TOTAL DA FATURA .......: ' WS-VALOR-EDITADO
+       96            DISPLAY 'COMPRAS ACIMA DO LIMITE: ' WS-QTD-ACIMA-LIMITE
+       97 
+       98            GOBACK.

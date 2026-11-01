@@ -1,0 +1,119 @@
+        1       *================================================================*
+        2       * PROGRAMA : FATCLASS (ESQUELETO PARA A TURMA)                   *
+        3       * AULA     : 6 - COBOL II, DECISAO E REPETICAO                   *
+        4       * OBJETIVO : CLASSIFICAR TRANSACOES EM APROVADA, NEGADA OU       *
+        5       *            SUSPEITA E VALIDAR O NUMERO DO CARTAO (LUHN).       *
+        6       * O QUE VOCE ESCREVE:                                            *
+        7       *   1. OS NIVEIS 88 MARCADOS NA TABELA DE TESTE;                 *
+        8       *   2. O EVALUATE TRUE DO PARAGRAFO 2100-CLASSIFICAR-TRANSACAO.  *
+        9       * O PARAGRAFO 9100-VALIDAR-LUHN JA ESTA PRONTO: LEIA E COMPARE   *
+       10       * COM O PSEUDOCODIGO DE LUHN DA AULA 2.                          *
+       11       * REGRAS   : CARTAO INVALIDO = NUMERO REPROVADO NO LUHN          *
+       12       *            NEGADA   = STATUS 'N' DA AUTORIZACAO                *
+       13       *            SUSPEITA = APROVADA, FORA DO PAIS E VALOR ACIMA     *
+       14       *                       DE 5.000,00                              *
+       15       *            APROVADA = DEMAIS CASOS                             *
+       16       *================================================================*
+       17        IDENTIFICATION DIVISION.
+       18        PROGRAM-ID. FATCLASS.
+       19 
+       20        DATA DIVISION.
+       21        WORKING-STORAGE SECTION.
+       22        01  WS-LIMITE-SUSPEITA         PIC 9(09)V99 VALUE 5000.00.
+       23 
+       24       *--- MASSA DE TESTE: CARTAO(16) VALOR(11) PAIS(3) STATUS(1) ----*
+       25        01  WS-MASSA-TESTE.
+       26            05  FILLER PIC X(31) VALUE
+       27                '990000073702838300000015000BRAA'.
+       28            05  FILLER PIC X(31) VALUE
+       29                '990000073702838300000750000USAA'.
+       30            05  FILLER PIC X(31) VALUE
+       31                '990000079819331600000020000BRAN'.
+       32            05  FILLER PIC X(31) VALUE
+       33                '990000079819331700000020000BRAA'.
+       34            05  FILLER PIC X(31) VALUE
+       35                '990000079819331600000450000ARGA'.
+       36       *    05  FILLER PIC X(31) VALUE '990000073702838300000015000BRAA'.
+       37       *    MOLDE: COPIE A LINHA ACIMA SEM O ASTERISCO, AJUSTE OS VALORES
+       38       *    (31 POSICOES, NO LAYOUT DO COMENTARIO DA MASSA), AUMENTE O
+       39       *    OCCURS E O LIMITE DO PERFORM VARYING (WS-IND > 5).
+       40        01  WS-TABELA-TESTE REDEFINES WS-MASSA-TESTE.
+       41            05  WS-TRANS-TESTE OCCURS 5 TIMES.
+       42                10  WS-T-CARTAO        PIC X(16).
+       43                10  WS-T-VALOR         PIC 9(09)V99.
+       44                10  WS-T-PAIS          PIC X(03).
+       45       *            ESCREVA AQUI O NIVEL 88 WS-T-NACIONAL ('BRA')
+       46                10  WS-T-STATUS        PIC X(01).
+       47       *            ESCREVA AQUI OS NIVEIS 88 WS-T-APROVADA ('A')
+       48       *            E WS-T-NEGADA ('N')
+       49 
+       50        01  WS-IND                     PIC 9(02).
+       51        01  WS-CLASSIFICACAO           PIC X(20).
+       52 
+       53       *--- AREAS DO ALGORITMO DE LUHN ---------------------------------*
+       54        01  WS-LUHN-CARTAO             PIC X(16).
+       55        01  WS-LUHN-DIGITOS REDEFINES WS-LUHN-CARTAO.
+       56            05  WS-LUHN-DIGITO         PIC 9(01) OCCURS 16 TIMES.
+       57        01  WS-LUHN-POS                PIC 9(02).
+       58        01  WS-LUHN-PARCELA            PIC 9(02).
+       59        01  WS-LUHN-SOMA               PIC 9(03).
+       60        01  WS-LUHN-DOBRAR             PIC X(01).
+       61            88  WS-LUHN-DOBRA                    VALUE 'S'.
+       62            88  WS-LUHN-NAO-DOBRA                VALUE 'N'.
+       63        01  WS-LUHN-RESULTADO          PIC X(01).
+       64            88  WS-LUHN-VALIDO                   VALUE 'S'.
+       65            88  WS-LUHN-INVALIDO                 VALUE 'N'.
+       66 
+       67        PROCEDURE DIVISION.
+       68        0000-PRINCIPAL.
+       69            PERFORM 2100-CLASSIFICAR-TRANSACAO
+       70               VARYING WS-IND FROM 1 BY 1
+       71               UNTIL WS-IND > 5
+       72            GOBACK.
+       73 
+       74        2100-CLASSIFICAR-TRANSACAO.
+       75            MOVE SPACES              TO WS-CLASSIFICACAO
+       76            MOVE WS-T-CARTAO(WS-IND) TO WS-LUHN-CARTAO
+       77            PERFORM 9100-VALIDAR-LUHN
+       78 
+       79       *    ESCREVA AQUI UM EVALUATE TRUE QUE MOVA PARA WS-CLASSIFICACAO
+       80       *    'CARTAO INVALIDO', 'NEGADA', 'SUSPEITA' OU 'APROVADA'.
+       81       *    - USE OS NIVEIS 88 E O WS-LIMITE-SUSPEITA, SEM NUMERO SOLTO;
+       82       *    - A ORDEM DOS WHEN FAZ PARTE DA REGRA;
+       83       *    - TERMINE COM WHEN OTHER E END-EVALUATE, SEM PONTO NO MEIO.
+       84       *    APAGUE O CONTINUE ABAIXO QUANDO ESCREVER O SEU CODIGO.
+       85            CONTINUE
+       86 
+       87            DISPLAY 'TRANSACAO ' WS-IND ': ' WS-CLASSIFICACAO
+       88            .
+       89 
+       90       *----------------------------------------------------------------*
+       91       * ALGORITMO DE LUHN (PRONTO, PARA LEITURA COMENTADA): PERCORRE   *
+       92       * OS DIGITOS DA DIREITA PARA A ESQUERDA, DOBRA UM SIM E UM NAO A *
+       93       * PARTIR DO PENULTIMO, SUBTRAI 9 DE TODA PARCELA MAIOR QUE 9 E   *
+       94       * SOMA TUDO. O NUMERO E VALIDO QUANDO A SOMA E MULTIPLA DE 10.   *
+       95       *----------------------------------------------------------------*
+       96        9100-VALIDAR-LUHN.
+       97            SET WS-LUHN-INVALIDO   TO TRUE
+       98            IF WS-LUHN-CARTAO IS NUMERIC
+       99               MOVE ZERO              TO WS-LUHN-SOMA
+      100               SET WS-LUHN-NAO-DOBRA  TO TRUE
+      101               PERFORM VARYING WS-LUHN-POS FROM 16 BY -1
+      102                       UNTIL WS-LUHN-POS < 1
+      103                  MOVE WS-LUHN-DIGITO(WS-LUHN-POS) TO WS-LUHN-PARCELA
+      104                  IF WS-LUHN-DOBRA
+      105                     COMPUTE WS-LUHN-PARCELA = WS-LUHN-PARCELA * 2
+      106                     IF WS-LUHN-PARCELA > 9
+      107                        SUBTRACT 9 FROM WS-LUHN-PARCELA
+      108                     END-IF
+      109                     SET WS-LUHN-NAO-DOBRA TO TRUE
+      110                  ELSE
+      111                     SET WS-LUHN-DOBRA     TO TRUE
+      112                  END-IF
+      113                  ADD WS-LUHN-PARCELA TO WS-LUHN-SOMA
+      114               END-PERFORM
+      115               IF FUNCTION MOD(WS-LUHN-SOMA, 10) = ZERO
+      116                  SET WS-LUHN-VALIDO TO TRUE
+      117               END-IF
+      118            END-IF
+      119            .
