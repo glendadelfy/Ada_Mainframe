@@ -1,0 +1,265 @@
+        1 FATURA NOTURNA - RELATORIO DE FATURAS   (DADOS FICTICIOS)              
+        2 
+        3 CARTAO            DATA        MCC   CATEGORIA                       ESTA
+        4 ------------------------------------------------------------------------
+        5 990000******8383  2026/10/05  5411  SUPERMERCADOS                   MERC
+        6 990000******8383  2026/10/05  7011  HOTEIS E HOSPEDAGEM             HOTE
+        7 990000******8383  2026/10/05  5999  VAREJO DIVERSO                  LOJA
+        8 990000******8383  2026/10/05  5912  FARMACIAS                       DROG
+        9 990000******8383  2026/10/05  4121  TAXI E TRANSPORTE POR APP       VAI 
+       10 990000******8383  2026/10/05  5942  LIVRARIAS                       LIVR
+       11 990000******8383  2026/10/05  5814  LANCHONETES E FAST FOOD         LANC
+       12                   TOTAL DO CARTAO     990000******8383                  
+       13                                                                         
+       14 990000******3316  2026/10/05  5814  LANCHONETES E FAST FOOD         BURG
+       15 990000******3316  2026/10/05  4121  TAXI E TRANSPORTE POR APP       CORR
+       16 990000******3316  2026/10/05  7011  HOTEIS E HOSPEDAGEM             POUS
+       17 990000******3316  2026/10/05  7832  CINEMAS                         CINE
+       18 990000******3316  2026/10/05  5541  POSTOS DE COMBUSTIVEL           AUTO
+       19 990000******3316  2026/10/05  7832  CINEMAS                         CINE
+       20 990000******3316  2026/10/05  5999  VAREJO DIVERSO                  TIEN
+       21                   TOTAL DO CARTAO     990000******3316                  
+       22                                                                         
+       23 990000******8750  2026/10/05  5411  SUPERMERCADOS                   MERC
+       24                   TOTAL DO CARTAO     990000******8750                  
+       25                                                                         
+       26 990000******8759  2026/10/05  7011  HOTEIS E HOSPEDAGEM             HOTE
+       27 990000******8759  2026/10/05  4121  TAXI E TRANSPORTE POR APP       VAI 
+       28 990000******8759  2026/10/05  5814  LANCHONETES E FAST FOOD         LANC
+       29 990000******8759  2026/10/05  5411  SUPERMERCADOS                   MERC
+       30 990000******8759  2026/10/05  7832  CINEMAS                         CINE
+       31 990000******8759  2026/10/05  5814  LANCHONETES E FAST FOOD         BURG
+       32 990000******8759  2026/10/05  7832  CINEMAS                         CINE
+       33                   TOTAL DO CARTAO     990000******8759                  
+       34                                                                         
+       35 990000******7539  2026/10/05  5912  FARMACIAS                       DROG
+       36 990000******7539  2026/10/05  5814  LANCHONETES E FAST FOOD         LANC
+       37 990000******7539  2026/10/05  7011  HOTEIS E HOSPEDAGEM             HOTE
+       38 990000******7539  2026/10/05  5912  FARMACIAS                       FARM
+       39 990000******7539  2026/10/05  5814  LANCHONETES E FAST FOOD         BURG
+       40 990000******7539  2026/10/05  5999  VAREJO DIVERSO                  BAZA
+       41 990000******7539  2026/10/05  7832  CINEMAS                         CINE
+       42 990000******7539  2026/10/05  5999  VAREJO DIVERSO                  LOJA
+       43                   TOTAL DO CARTAO     990000******7539                  
+       44                                                                         
+       45 990000******9980  2026/10/05  5999  VAREJO DIVERSO                  LOJA
+       46 990000******9980  2026/10/05  7832  CINEMAS                         CINE
+       47 990000******9980  2026/10/05  5814  LANCHONETES E FAST FOOD         LANC
+       48 990000******9980  2026/10/05  5411  SUPERMERCADOS                   SUPE
+       49                   TOTAL DO CARTAO     990000******9980                  
+       50                                                                         
+       51 
+       52 CARTAO            DATA        MCC   CATEGORIA                       ESTA
+       53 ------------------------------------------------------------------------
+       54 990000******8463  2026/10/05  5999  VAREJO DIVERSO                  BAZA
+       55 990000******8463  2026/10/05  5912  FARMACIAS                       DROG
+       56 990000******8463  2026/10/05  7832  CINEMAS                         CINE
+       57 990000******8463  2026/10/05  7832  CINEMAS                         CINE
+       58 990000******8463  2026/10/05  5812  RESTAURANTES                    REST
+       59 990000******8463  2026/10/05  5812  RESTAURANTES                    REST
+       60 990000******8463  2026/10/05  5411  SUPERMERCADOS                   SUPE
+       61                   TOTAL DO CARTAO     990000******8463                  
+       62                                                                         
+       63 990000******5790  2026/10/05  5814  LANCHONETES E FAST FOOD         LANC
+       64 990000******5790  2026/10/05  7832  CINEMAS                         CINE
+       65 990000******5790  2026/10/05  4121  TAXI E TRANSPORTE POR APP       CORR
+       66 990000******5790  2026/10/05  5812  RESTAURANTES                    REST
+       67 990000******5790  2026/10/05  5999  VAREJO DIVERSO                  BAZA
+       68 990000******5790  2026/10/05  5541  POSTOS DE COMBUSTIVEL           AUTO
+       69 990000******5790  2026/10/05  7011  HOTEIS E HOSPEDAGEM             HOTE
+       70 990000******5790  2026/10/05  4121  TAXI E TRANSPORTE POR APP       CORR
+       71 990000******5790  2026/10/05  7832  CINEMAS                         CINE
+       72 990000******5790  2026/10/05  5912  FARMACIAS                       DROG
+       73 990000******5790  2026/10/05  7832  CINEMAS                         CINE
+       74                   TOTAL DO CARTAO     990000******5790                  
+       75                                                                         
+       76 990000******2088  2026/10/05  5912  FARMACIAS                       FARM
+       77 990000******2088  2026/10/05  5912  FARMACIAS                       FARM
+       78 990000******2088  2026/10/05  5942  LIVRARIAS                       SEBO
+       79 990000******2088  2026/10/05  5812  RESTAURANTES                    REST
+       80 990000******2088  2026/10/05  4121  TAXI E TRANSPORTE POR APP       CORR
+       81 990000******2088  2026/10/05  4121  TAXI E TRANSPORTE POR APP       VAI 
+       82                   TOTAL DO CARTAO     990000******2088                  
+       83                                                                         
+       84 990000******9921  2026/10/05  5814  LANCHONETES E FAST FOOD         BURG
+       85 990000******9921  2026/10/05  7011  HOTEIS E HOSPEDAGEM             HOTE
+       86 990000******9921  2026/10/05  5999  VAREJO DIVERSO                  BAZA
+       87 990000******9921  2026/10/05  5999  VAREJO DIVERSO                  BAZA
+       88 990000******9921  2026/10/05  5942  LIVRARIAS                       LIVR
+       89 990000******9921  2026/10/05  5912  FARMACIAS                       DROG
+       90                   TOTAL DO CARTAO     990000******9921                  
+       91                                                                         
+       92 990000******9875  2026/10/05  5942  LIVRARIAS                       LIVR
+       93 990000******9875  2026/10/05  5541  POSTOS DE COMBUSTIVEL           POST
+       94 990000******9875  2026/10/05  5411  SUPERMERCADOS                   MERC
+       95 990000******9875  2026/10/05  7011  HOTEIS E HOSPEDAGEM             POUS
+       96 990000******9875  2026/10/05  5942  LIVRARIAS                       SEBO
+       97 990000******9875  2026/10/05  7832  CINEMAS                         CINE
+       98 990000******9875  2026/10/05  5999  VAREJO DIVERSO                  BAZA
+       99 990000******9875  2026/10/05  5541  POSTOS DE COMBUSTIVEL           AUTO
+      100 
+      101 CARTAO            DATA        MCC   CATEGORIA                       ESTA
+      102 ------------------------------------------------------------------------
+      103 990000******9875  2026/10/05  5541  POSTOS DE COMBUSTIVEL           POST
+      104                   TOTAL DO CARTAO     990000******9875                  
+      105                                                                         
+      106 990000******1519  2026/10/05  7011  HOTEIS E HOSPEDAGEM             HOTE
+      107 990000******1519  2026/10/05  4121  TAXI E TRANSPORTE POR APP       CORR
+      108 990000******1519  2026/10/05  5541  POSTOS DE COMBUSTIVEL           AUTO
+      109 990000******1519  2026/10/05  5999  VAREJO DIVERSO                  BAZA
+      110 990000******1519  2026/10/05  5814  LANCHONETES E FAST FOOD         BURG
+      111 990000******1519  2026/10/05  5912  FARMACIAS                       FARM
+      112 990000******1519  2026/10/05  7832  CINEMAS                         CINE
+      113 990000******1519  2026/10/05  4121  TAXI E TRANSPORTE POR APP       VAI 
+      114 990000******1519  2026/10/05  5942  LIVRARIAS                       LIVR
+      115 990000******1519  2026/10/05  5999  VAREJO DIVERSO                  BAZA
+      116                   TOTAL DO CARTAO     990000******1519                  
+      117                                                                         
+      118 990000******0165  2026/10/05  5411  SUPERMERCADOS                   SUPE
+      119 990000******0165  2026/10/05  5999  VAREJO DIVERSO                  BAZA
+      120 990000******0165  2026/10/05  7832  CINEMAS                         CINE
+      121 990000******0165  2026/10/05  5999  VAREJO DIVERSO                  LOJA
+      122 990000******0165  2026/10/05  5999  VAREJO DIVERSO                  BAZA
+      123 990000******0165  2026/10/05  7832  CINEMAS                         CINE
+      124 990000******0165  2026/10/05  5411  SUPERMERCADOS                   MERC
+      125 990000******0165  2026/10/05  7832  CINEMAS                         CINE
+      126 990000******0165  2026/10/05  5812  RESTAURANTES                    REST
+      127 990000******0165  2026/10/05  5541  POSTOS DE COMBUSTIVEL           AUTO
+      128                   TOTAL DO CARTAO     990000******0165                  
+      129                                                                         
+      130 990000******3095  2026/10/05  5942  LIVRARIAS                       SEBO
+      131 990000******3095  2026/10/05  5912  FARMACIAS                       FARM
+      132 990000******3095  2026/10/05  5814  LANCHONETES E FAST FOOD         LANC
+      133                   TOTAL DO CARTAO     990000******3095                  
+      134                                                                         
+      135 990000******7015  2026/10/05  7832  CINEMAS                         CINE
+      136 990000******7015  2026/10/05  5942  LIVRARIAS                       LIVR
+      137 990000******7015  2026/10/05  5912  FARMACIAS                       FARM
+      138 990000******7015  2026/10/05  5912  FARMACIAS                       DROG
+      139 990000******7015  2026/10/05  4121  TAXI E TRANSPORTE POR APP       VAI 
+      140 990000******7015  2026/10/05  5411  SUPERMERCADOS                   SUPE
+      141 990000******7015  2026/10/05  5814  LANCHONETES E FAST FOOD         BURG
+      142                   TOTAL DO CARTAO     990000******7015                  
+      143                                                                         
+      144 990000******0029  2026/10/05  7832  CINEMAS                         CINE
+      145 990000******0029  2026/10/05  5812  RESTAURANTES                    REST
+      146 990000******0029  2026/10/05  5999  VAREJO DIVERSO                  LOJA
+      147 990000******0029  2026/10/05  5812  RESTAURANTES                    REST
+      148                   TOTAL DO CARTAO     990000******0029                  
+      149                                                                         
+      150 
+      151 CARTAO            DATA        MCC   CATEGORIA                       ESTA
+      152 ------------------------------------------------------------------------
+      153 990000******4883  2026/10/05  5912  FARMACIAS                       DROG
+      154 990000******4883  2026/10/05  5942  LIVRARIAS                       SEBO
+      155 990000******4883  2026/10/05  4121  TAXI E TRANSPORTE POR APP       VAI 
+      156 990000******4883  2026/10/05  5814  LANCHONETES E FAST FOOD         LANC
+      157 990000******4883  2026/10/05  7011  HOTEIS E HOSPEDAGEM             POUS
+      158 990000******4883  2026/10/05  5541  POSTOS DE COMBUSTIVEL           AUTO
+      159 990000******4883  2026/10/05  4121  TAXI E TRANSPORTE POR APP       CORR
+      160 990000******4883  2026/10/05  4121  TAXI E TRANSPORTE POR APP       VAI 
+      161 990000******4883  2026/10/05  7832  CINEMAS                         CINE
+      162 990000******4883  2026/10/05  5541  POSTOS DE COMBUSTIVEL           AUTO
+      163 990000******4883  2026/10/05  4121  TAXI E TRANSPORTE POR APP       CORR
+      164 990000******4883  2026/10/05  5814  LANCHONETES E FAST FOOD         LANC
+      165                   TOTAL DO CARTAO     990000******4883                  
+      166                                                                         
+      167 990000******7140  2026/10/05  5912  FARMACIAS                       DROG
+      168 990000******7140  2026/10/05  7011  HOTEIS E HOSPEDAGEM             HOTE
+      169 990000******7140  2026/10/05  5814  LANCHONETES E FAST FOOD         LANC
+      170 990000******7140  2026/10/05  4121  TAXI E TRANSPORTE POR APP       CORR
+      171 990000******7140  2026/10/05  5814  LANCHONETES E FAST FOOD         BURG
+      172 990000******7140  2026/10/05  5411  SUPERMERCADOS                   SUPE
+      173 990000******7140  2026/10/05  5814  LANCHONETES E FAST FOOD         LANC
+      174                   TOTAL DO CARTAO     990000******7140                  
+      175                                                                         
+      176 990000******7312  2026/10/05  5999  VAREJO DIVERSO                  LOJA
+      177 990000******7312  2026/10/05  5912  FARMACIAS                       FARM
+      178 990000******7312  2026/10/05  7832  CINEMAS                         CINE
+      179 990000******7312  2026/10/05  4121  TAXI E TRANSPORTE POR APP       CORR
+      180 990000******7312  2026/10/05  5912  FARMACIAS                       FARM
+      181 990000******7312  2026/10/05  5411  SUPERMERCADOS                   MERC
+      182 990000******7312  2026/10/05  5814  LANCHONETES E FAST FOOD         BURG
+      183 990000******7312  2026/10/05  5814  LANCHONETES E FAST FOOD         BURG
+      184 990000******7312  2026/10/05  7832  CINEMAS                         CINE
+      185                   TOTAL DO CARTAO     990000******7312                  
+      186                                                                         
+      187 990000******9487  2026/10/05  5814  LANCHONETES E FAST FOOD         BURG
+      188 990000******9487  2026/10/05  5411  SUPERMERCADOS                   SUPE
+      189 990000******9487  2026/10/05  5411  SUPERMERCADOS                   MERC
+      190 990000******9487  2026/10/05  7011  HOTEIS E HOSPEDAGEM             POUS
+      191 990000******9487  2026/10/05  4121  TAXI E TRANSPORTE POR APP       CORR
+      192 990000******9487  2026/10/05  5411  SUPERMERCADOS                   MERC
+      193 990000******9487  2026/10/05  5912  FARMACIAS                       FARM
+      194                   TOTAL DO CARTAO     990000******9487                  
+      195                                                                         
+      196 990000******5713  2026/10/05  5541  POSTOS DE COMBUSTIVEL           AUTO
+      197 990000******5713  2026/10/05  5814  LANCHONETES E FAST FOOD         BURG
+      198 990000******5713  2026/10/05  7832  CINEMAS                         CINE
+      199 
+      200 CARTAO            DATA        MCC   CATEGORIA                       ESTA
+      201 ------------------------------------------------------------------------
+      202 990000******5713  2026/10/05  7011  HOTEIS E HOSPEDAGEM             HOTE
+      203 990000******5713  2026/10/05  7832  CINEMAS                         CINE
+      204 990000******5713  2026/10/05  7832  CINEMAS                         CINE
+      205                   TOTAL DO CARTAO     990000******5713                  
+      206                                                                         
+      207 990000******9405  2026/10/05  5814  LANCHONETES E FAST FOOD         LANC
+      208 990000******9405  2026/10/05  5541  POSTOS DE COMBUSTIVEL           POST
+      209 990000******9405  2026/10/05  5411  SUPERMERCADOS                   MERC
+      210 990000******9405  2026/10/05  5942  LIVRARIAS                       LIVR
+      211 990000******9405  2026/10/05  5541  POSTOS DE COMBUSTIVEL           AUTO
+      212 990000******9405  2026/10/05  4121  TAXI E TRANSPORTE POR APP       CORR
+      213                   TOTAL DO CARTAO     990000******9405                  
+      214                                                                         
+      215 990000******0595  2026/10/05  4121  TAXI E TRANSPORTE POR APP       VAI 
+      216 990000******0595  2026/10/05  5541  POSTOS DE COMBUSTIVEL           POST
+      217 990000******0595  2026/10/05  4121  TAXI E TRANSPORTE POR APP       VAI 
+      218 990000******0595  2026/10/05  5912  FARMACIAS                       FARM
+      219 990000******0595  2026/10/05  7832  CINEMAS                         CINE
+      220 990000******0595  2026/10/05  5411  SUPERMERCADOS                   MERC
+      221 990000******0595  2026/10/05  5912  FARMACIAS                       FARM
+      222 990000******0595  2026/10/05  5411  SUPERMERCADOS                   MERC
+      223 990000******0595  2026/10/05  5999  VAREJO DIVERSO                  BAZA
+      224                   TOTAL DO CARTAO     990000******0595                  
+      225                                                                         
+      226 990000******9291  2026/10/05  7011  HOTEIS E HOSPEDAGEM             POUS
+      227 990000******9291  2026/10/05  7011  HOTEIS E HOSPEDAGEM             POUS
+      228 990000******9291  2026/10/05  5541  POSTOS DE COMBUSTIVEL           AUTO
+      229 990000******9291  2026/10/05  5912  FARMACIAS                       FARM
+      230 990000******9291  2026/10/05  5812  RESTAURANTES                    CANT
+      231 990000******9291  2026/10/05  7011  HOTEIS E HOSPEDAGEM             POUS
+      232                   TOTAL DO CARTAO     990000******9291                  
+      233                                                                         
+      234 990000******4778  2026/10/05  5411  SUPERMERCADOS                   SUPE
+      235 990000******4778  2026/10/05  7832  CINEMAS                         CINE
+      236 990000******4778  2026/10/05  5942  LIVRARIAS                       SEBO
+      237                   TOTAL DO CARTAO     990000******4778                  
+      238                                                                         
+      239 990000******3204  2026/10/05  5814  LANCHONETES E FAST FOOD         BURG
+      240 990000******3204  2026/10/05  7011  HOTEIS E HOSPEDAGEM             POUS
+      241 990000******3204  2026/10/05  5999  VAREJO DIVERSO                  LOJA
+      242 990000******3204  2026/10/05  5999  VAREJO DIVERSO                  BAZA
+      243 990000******3204  2026/10/05  5942  LIVRARIAS                       LIVR
+      244 990000******3204  2026/10/05  5814  LANCHONETES E FAST FOOD         BURG
+      245 990000******3204  2026/10/05  5912  FARMACIAS                       FARM
+      246 990000******3204  2026/10/05  5541  POSTOS DE COMBUSTIVEL           AUTO
+      247                   TOTAL DO CARTAO     990000******3204                  
+      248                                                                         
+      249 
+      250 CARTAO            DATA        MCC   CATEGORIA                       ESTA
+      251 ------------------------------------------------------------------------
+      252 
+      253 TOTAL POR CATEGORIA (MCC)                                               
+      254     4121  TAXI E TRANSPORTE POR APP              20             6,727.73
+      255     5411  SUPERMERCADOS                          18             3,828.03
+      256     5541  POSTOS DE COMBUSTIVEL                  15             4,820.75
+      257     5812  RESTAURANTES                            8             2,062.95
+      258     5814  LANCHONETES E FAST FOOD                24             5,934.36
+      259     5912  FARMACIAS                              21             7,039.48
+      260     5942  LIVRARIAS                              12             4,438.64
+      261     5999  VAREJO DIVERSO                         20            12,253.03
+      262     7011  HOTEIS E HOSPEDAGEM                    16            12,045.92
+      263     7832  CINEMAS                                26             8,007.32
+      264 
+      265 TOTAL GERAL         CARTOES:         26          VALOR:           67,158

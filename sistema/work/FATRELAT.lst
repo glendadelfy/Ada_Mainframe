@@ -1,4 +1,4 @@
-GnuCOBOL 3.3-dev.0      sistema\work\FATRELA Fri Oct 30 2026 21:43:36  Page 0001
+GnuCOBOL 3.3-dev.0      sistema\work\FATRELA Mon Nov 02 2026 16:49:35  Page 0001
 
 LINE    PG/LN  A...B............................................................
 
@@ -21,7 +21,6 @@ LINE    PG/LN  A...B............................................................
 000017         INPUT-OUTPUT SECTION.
 000018         FILE-CONTROL.
 000019             SELECT TRANS-APROVADA ASSIGN TO APROVIN
-error: missing file description for FILE TRANS-APROVADA
 000020                    FILE STATUS IS WS-FS-APROVADA.
 000021             SELECT TABELA-MCC     ASSIGN TO MCCTAB
 000022                    FILE STATUS IS WS-FS-MCC.
@@ -33,12 +32,32 @@ error: missing file description for FILE TRANS-APROVADA
 000028         FD  TRANS-APROVADA
 000029             RECORDING MODE IS F.
 000030             COPY CPTRANI.
-error: CPTRANI: No such file or directory
+000001C       *================================================================*
+000002C       * CPTRANI  - TRANSACAO INTERNA (APOS VALIDACAO)                  *
+000003C       * LRECL 80, RECFM FB. VALOR EM COMP-3 (PACKED DECIMAL).          *
+000004C       * ESTE ARQUIVO E BINARIO: NAO TRANSFERIR COMO TEXTO.             *
+000005C       *================================================================*
+000006C        01  REG-TRANS-INTERNA.
+000007C            05  TI-NUM-CARTAO          PIC X(16).
+000008C            05  TI-DATA-TRANSACAO      PIC 9(08).
+000009C            05  TI-HORA-TRANSACAO      PIC 9(06).
+000010C            05  TI-VALOR               PIC S9(09)V99 COMP-3.
+000011C            05  TI-MCC                 PIC 9(04).
+000012C            05  TI-PAIS                PIC X(03).
+000013C            05  TI-COD-AUTORIZACAO     PIC X(06).
+000014C            05  TI-CLASSIFICACAO       PIC X(01).
+000015C                88  TI-NORMAL                    VALUE 'N'.
+000016C                88  TI-SUSPEITA                  VALUE 'S'.
+000017C            05  TI-ESTABELECIMENTO     PIC X(20).
+000018C            05  FILLER                 PIC X(10).
 000031         FD  TABELA-MCC
-error: RECORD description missing or invalid
 000032             RECORDING MODE IS F.
 000033         01  REG-MCC.
 000034             05  MC-CODIGO              PIC 9(04).
+GnuCOBOL 3.3-dev.0      sistema\work\FATRELA Mon Nov 02 2026 16:49:35  Page 0002
+
+LINE    PG/LN  A...B............................................................
+
 000035             05  MC-DESCRICAO           PIC X(30).
 000036             05  FILLER                 PIC X(46).
 000037         FD  RELATORIO
@@ -54,10 +73,6 @@ error: RECORD description missing or invalid
 000047             88  WS-FS-MCC-FIM                    VALUE '10'.
 000048         01  WS-FS-RELATORIO            PIC X(02).
 000049             88  WS-FS-REL-OK                     VALUE '00'.
-GnuCOBOL 3.3-dev.0      sistema\work\FATRELA Fri Oct 30 2026 21:43:36  Page 0002
-
-LINE    PG/LN  A...B............................................................
-
 000050
 000051        *--- TABELA DE MCC EM MEMORIA (CARREGADA DO ARQUIVO MCCTAB) -----*
 000052        *    AS POSICOES NAO USADAS FICAM COM CODIGO 9999 PARA QUE A
@@ -95,6 +110,10 @@ LINE    PG/LN  A...B............................................................
 000084                 'FATURA NOTURNA - RELATORIO DE FATURAS'.
 000085             05  FILLER                 PIC X(20) VALUE
 000086                 '(DADOS FICTICIOS)'.
+GnuCOBOL 3.3-dev.0      sistema\work\FATRELA Mon Nov 02 2026 16:49:35  Page 0003
+
+LINE    PG/LN  A...B............................................................
+
 000087             05  FILLER                 PIC X(60) VALUE SPACES.
 000088             05  FILLER                 PIC X(07) VALUE 'PAGINA '.
 000089             05  CB1-PAGINA             PIC ZZZ9.
@@ -110,10 +129,6 @@ LINE    PG/LN  A...B............................................................
 000099                 '           VALOR'.
 000100             05  FILLER                 PIC X(02) VALUE SPACES.
 000101             05  FILLER                 PIC X(18) VALUE 'OBS'.
-GnuCOBOL 3.3-dev.0      sistema\work\FATRELA Fri Oct 30 2026 21:43:36  Page 0003
-
-LINE    PG/LN  A...B............................................................
-
 000102         01  WS-DETALHE.
 000103             05  DT-CARTAO              PIC X(16).
 000104             05  FILLER                 PIC X(02) VALUE SPACES.
@@ -151,6 +166,10 @@ LINE    PG/LN  A...B............................................................
 000136                 'TOTAL GERAL'.
 000137             05  FILLER                 PIC X(10) VALUE 'CARTOES: '.
 000138             05  LG-QTD-CARTOES         PIC Z,ZZZ,ZZ9.
+GnuCOBOL 3.3-dev.0      sistema\work\FATRELA Mon Nov 02 2026 16:49:35  Page 0004
+
+LINE    PG/LN  A...B............................................................
+
 000139             05  FILLER                 PIC X(10) VALUE SPACES.
 000140             05  FILLER                 PIC X(08) VALUE 'VALOR: '.
 000141             05  LG-VALOR               PIC ZZZ,ZZZ,ZZZ,ZZ9.99.
@@ -166,10 +185,6 @@ LINE    PG/LN  A...B............................................................
 000151             OPEN INPUT TABELA-MCC
 000152             IF NOT WS-FS-MCC-OK
 000153                DISPLAY 'FATRELAT - ERRO NO OPEN DE MCCTAB. FS='
-GnuCOBOL 3.3-dev.0      sistema\work\FATRELA Fri Oct 30 2026 21:43:36  Page 0004
-
-LINE    PG/LN  A...B............................................................
-
 000154                        WS-FS-MCC
 000155                PERFORM 9900-ENCERRAR-COM-ERRO
 000156             END-IF
@@ -207,6 +222,10 @@ LINE    PG/LN  A...B............................................................
 000188                   END-IF
 000189                   ADD 1 TO WS-QTD-MCC
 000190                   MOVE MC-CODIGO    TO WS-MCC-CODIGO(WS-QTD-MCC)
+GnuCOBOL 3.3-dev.0      sistema\work\FATRELA Mon Nov 02 2026 16:49:35  Page 0005
+
+LINE    PG/LN  A...B............................................................
+
 000191                   MOVE MC-DESCRICAO TO WS-MCC-DESCRICAO(WS-QTD-MCC)
 000192             END-READ
 000193             .
@@ -216,16 +235,11 @@ LINE    PG/LN  A...B............................................................
 000197        *----------------------------------------------------------------*
 000198         2000-PROCESSAR-CARTAO.
 000199             MOVE TI-NUM-CARTAO TO WS-CARTAO-ANTERIOR
-error: 'TI-NUM-CARTAO' is not defined
 000200             MOVE ZERO          TO WS-TOTAL-CARTAO
 000201             ADD 1              TO WS-QTD-CARTOES
 000202             PERFORM 2100-PROCESSAR-TRANSACAO
 000203                UNTIL WS-FS-APR-FIM
 000204                   OR TI-NUM-CARTAO NOT = WS-CARTAO-ANTERIOR
-GnuCOBOL 3.3-dev.0      sistema\work\FATRELA Fri Oct 30 2026 21:43:36  Page 0005
-
-LINE    PG/LN  A...B............................................................
-
 000205             PERFORM 2200-IMPRIMIR-TOTAL-CARTAO
 000206             .
 000207
@@ -234,28 +248,21 @@ LINE    PG/LN  A...B............................................................
 000210                AT END
 000211                   MOVE 'CATEGORIA NAO CADASTRADA' TO WS-DESC-CATEGORIA
 000212                WHEN WS-MCC-CODIGO(IX-MCC) = TI-MCC
-error: 'TI-MCC' is not defined
 000213                   MOVE WS-MCC-DESCRICAO(IX-MCC)   TO WS-DESC-CATEGORIA
 000214                   ADD TI-VALOR TO WS-MCC-TOTAL(IX-MCC)
-error: 'TI-VALOR' is not defined
 000215                   ADD 1        TO WS-MCC-QTD(IX-MCC)
 000216             END-SEARCH
 000217
 000218             MOVE TI-NUM-CARTAO      TO WS-CARTAO-ABERTO
 000219             PERFORM 9800-MASCARAR-CARTAO
-error: '9800-MASCARAR-CARTAO' is not defined
 000220             MOVE WS-CARTAO-MASC     TO DT-CARTAO
 000221             MOVE TI-DATA-TRANSACAO  TO DT-DATA
-error: 'TI-DATA-TRANSACAO' is not defined
 000222             MOVE TI-MCC             TO DT-MCC
 000223             MOVE WS-DESC-CATEGORIA  TO DT-CATEGORIA
 000224             MOVE TI-ESTABELECIMENTO TO DT-ESTABELECIMENTO
-error: 'TI-ESTABELECIMENTO' is not defined
 000225             MOVE TI-PAIS            TO DT-PAIS
-error: 'TI-PAIS' is not defined
 000226             MOVE TI-VALOR           TO DT-VALOR
 000227             IF TI-SUSPEITA
-error: 'TI-SUSPEITA' is not defined
 000228                MOVE 'SUSPEITA'      TO DT-OBS
 000229             ELSE
 000230                MOVE SPACES          TO DT-OBS
@@ -271,6 +278,10 @@ error: 'TI-SUSPEITA' is not defined
 000240             PERFORM 9800-MASCARAR-CARTAO
 000241             MOVE WS-CARTAO-MASC     TO TC-CARTAO
 000242             MOVE WS-TOTAL-CARTAO    TO TC-VALOR
+GnuCOBOL 3.3-dev.0      sistema\work\FATRELA Mon Nov 02 2026 16:49:35  Page 0006
+
+LINE    PG/LN  A...B............................................................
+
 000243             WRITE REG-RELATORIO FROM WS-LINHA-TOTAL-CARTAO
 000244                   AFTER ADVANCING 1 LINE
 000245             MOVE SPACES TO REG-RELATORIO
@@ -278,10 +289,6 @@ error: 'TI-SUSPEITA' is not defined
 000247             ADD 2 TO WS-CONTA-LINHAS
 000248             .
 000249
-GnuCOBOL 3.3-dev.0      sistema\work\FATRELA Fri Oct 30 2026 21:43:36  Page 0006
-
-LINE    PG/LN  A...B............................................................
-
 000250         3000-FINALIZAR.
 000251             PERFORM 7100-IMPRIMIR-CABECALHO
 000252             MOVE 'TOTAL POR CATEGORIA (MCC)' TO REG-RELATORIO
@@ -327,6 +334,10 @@ LINE    PG/LN  A...B............................................................
 000292                AT END CONTINUE
 000293             END-READ
 000294             IF NOT WS-FS-APR-OK AND NOT WS-FS-APR-FIM
+GnuCOBOL 3.3-dev.0      sistema\work\FATRELA Mon Nov 02 2026 16:49:35  Page 0007
+
+LINE    PG/LN  A...B............................................................
+
 000295                DISPLAY 'FATRELAT - ERRO NO READ DE APROVIN. FS='
 000296                        WS-FS-APROVADA
 000297                PERFORM 9900-ENCERRAR-COM-ERRO
@@ -334,11 +345,12 @@ LINE    PG/LN  A...B............................................................
 000299             .
 000300
 000301             COPY CPMASCAR.
-GnuCOBOL 3.3-dev.0      sistema\work\FATRELA Fri Oct 30 2026 21:43:36  Page 0007
-
-LINE    PG/LN  A...B............................................................
-
-error: CPMASCAR: No such file or directory
+000001C       *---------------------------------------------------------*
+000002C        9800-MASCARAR-CARTAO.
+000003C            MOVE WS-CARTAO-ABERTO TO WS-CARTAO-MASC
+000004C            MOVE '******'         TO WS-CARTAO-MASC(7:6)
+000005C            .
+warning: line not terminated by a newline
 000302
 000303         9900-ENCERRAR-COM-ERRO.
 000304             MOVE 16 TO RETURN-CODE
@@ -346,22 +358,11 @@ error: CPMASCAR: No such file or directory
 000306             .
 
 
-GnuCOBOL 3.3-dev.0      sistema\work\FATRELA Fri Oct 30 2026 21:43:36  Page 0008
+GnuCOBOL 3.3-dev.0      sistema\work\FATRELA Mon Nov 02 2026 16:49:35  Page 0008
 
 Error/Warning summary:
 
-sistema\work\FATRELAT.cbl:30: error: CPTRANI: No such file or directory
-sistema\work\FATRELAT.cbl:301: error: CPMASCAR: No such file or directory
-sistema\work\FATRELAT.cbl:19: error: missing file description for FILE TRANS-APROVADA
-sistema\work\FATRELAT.cbl:31: error: RECORD description missing or invalid
-sistema\work\FATRELAT.cbl:199: error: 'TI-NUM-CARTAO' is not defined
-sistema\work\FATRELAT.cbl:212: error: 'TI-MCC' is not defined
-sistema\work\FATRELAT.cbl:214: error: 'TI-VALOR' is not defined
-sistema\work\FATRELAT.cbl:219: error: '9800-MASCARAR-CARTAO' is not defined
-sistema\work\FATRELAT.cbl:221: error: 'TI-DATA-TRANSACAO' is not defined
-sistema\work\FATRELAT.cbl:224: error: 'TI-ESTABELECIMENTO' is not defined
-sistema\work\FATRELAT.cbl:225: error: 'TI-PAIS' is not defined
-sistema\work\FATRELAT.cbl:227: error: 'TI-SUSPEITA' is not defined
+catalogo\ALUNO.FATURA.COPY\CPMASCAR.CPY:5: warning: line not terminated by a newline
 
-0 warnings in compilation group
-12 errors in compilation group
+1 warning in compilation group
+0 errors in compilation group

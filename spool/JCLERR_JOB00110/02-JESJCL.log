@@ -1,0 +1,306 @@
+        1       *================================================================*
+        2       * PROGRAMA : FATRELAT                                            *
+        3       * AULA     : 8 - COBOL IV, TABELAS INTERNAS E RELATORIOS         *
+        4       * OBJETIVO : EMITIR O RELATORIO DE FATURAS: DETALHE POR          *
+        5       *            TRANSACAO, TOTAL POR CARTAO (QUEBRA DE CONTROLE) E  *
+        6       *            TOTAL GERAL POR CATEGORIA (MCC).                    *
+        7       *            O NUMERO DO CARTAO E SEMPRE EXIBIDO MASCARADO.      *
+        8       * ENTRADAS : DD APROVIN  - CPTRANI, FB 80, ORDENADO POR CARTAO   *
+        9       *            DD MCCTAB   - TABELA MCC, FB 80, ORDENADA POR MCC   *
+       10       * SAIDA    : DD RELATOUT - RELATORIO, FBA 133 (LINHA DE 132 +    *
+       11       *            CARACTERE DE CONTROLE GERADO PELO ADVANCING)        *
+       12       *================================================================*
+       13        IDENTIFICATION DIVISION.
+       14        PROGRAM-ID. FATRELAT.
+       15 
+       16        ENVIRONMENT DIVISION.
+       17        INPUT-OUTPUT SECTION.
+       18        FILE-CONTROL.
+       19            SELECT TRANS-APROVADA ASSIGN TO APROVIN
+       20                   FILE STATUS IS WS-FS-APROVADA.
+       21            SELECT TABELA-MCC     ASSIGN TO MCCTAB
+       22                   FILE STATUS IS WS-FS-MCC.
+       23            SELECT RELATORIO      ASSIGN TO RELATOUT
+       24                   FILE STATUS IS WS-FS-RELATORIO.
+       25 
+       26        DATA DIVISION.
+       27        FILE SECTION.
+       28        FD  TRANS-APROVADA
+       29            RECORDING MODE IS F.
+       30            COPY CPTRANI.
+       31        FD  TABELA-MCC
+       32            RECORDING MODE IS F.
+       33        01  REG-MCC.
+       34            05  MC-CODIGO              PIC 9(04).
+       35            05  MC-DESCRICAO           PIC X(30).
+       36            05  FILLER                 PIC X(46).
+       37        FD  RELATORIO
+       38            RECORDING MODE IS F.
+       39        01  REG-RELATORIO              PIC X(132).
+       40 
+       41        WORKING-STORAGE SECTION.
+       42        01  WS-FS-APROVADA             PIC X(02).
+       43            88  WS-FS-APR-OK                     VALUE '00'.
+       44            88  WS-FS-APR-FIM                    VALUE '10'.
+       45        01  WS-FS-MCC                  PIC X(02).
+       46            88  WS-FS-MCC-OK                     VALUE '00'.
+       47            88  WS-FS-MCC-FIM                    VALUE '10'.
+       48        01  WS-FS-RELATORIO            PIC X(02).
+       49            88  WS-FS-REL-OK                     VALUE '00'.
+       50 
+       51       *--- TABELA DE MCC EM MEMORIA (CARREGADA DO ARQUIVO MCCTAB) -----*
+       52       *    AS POSICOES NAO USADAS FICAM COM CODIGO 9999 PARA QUE A
+       53       *    TABELA CONTINUE EM ORDEM CRESCENTE (EXIGENCIA DO SEARCH ALL)
+       54        01  WS-MAX-MCC                 PIC 9(03) VALUE 100.
+       55        01  WS-QTD-MCC                 PIC 9(03) VALUE ZERO.
+       56        01  WS-TABELA-MCC.
+       57            05  WS-MCC-ITEM OCCURS 100 TIMES
+       58                            ASCENDING KEY IS WS-MCC-CODIGO
+       59                            INDEXED BY IX-MCC.
+       60                10  WS-MCC-CODIGO      PIC 9(04).
+       61                10  WS-MCC-DESCRICAO   PIC X(30).
+       62                10  WS-MCC-TOTAL       PIC S9(11)V99 COMP-3.
+       63                10  WS-MCC-QTD         PIC 9(07).
+       64 
+       65       *--- CONTROLE DA QUEBRA -----------------------------------------*
+       66        01  WS-CARTAO-ANTERIOR         PIC X(16).
+       67        01  WS-TOTAL-CARTAO            PIC S9(11)V99 COMP-3.
+       68        01  WS-TOTAL-GERAL             PIC S9(13)V99 COMP-3 VALUE ZERO.
+       69        01  WS-QTD-CARTOES             PIC 9(07) VALUE ZERO.
+       70        01  WS-DESC-CATEGORIA          PIC X(30).
+       71 
+       72       *--- PAGINACAO --------------------------------------------------*
+       73        01  WS-LINHAS-POR-PAGINA       PIC 9(03) VALUE 50.
+       74        01  WS-CONTA-LINHAS            PIC 9(03) VALUE 99.
+       75        01  WS-PAGINA                  PIC 9(04) VALUE ZERO.
+       76 
+       77       *--- MASCARAMENTO -----------------------------------------------*
+       78        01  WS-CARTAO-ABERTO           PIC X(16).
+       79        01  WS-CARTAO-MASC             PIC X(16).
+       80 
+       81       *--- LINHAS DO RELATORIO ----------------------------------------*
+       82        01  WS-CAB-1.
+       83            05  FILLER                 PIC X(40) VALUE
+       84                'FATURA NOTURNA - RELATORIO DE FATURAS'.
+       85            05  FILLER                 PIC X(20) VALUE
+       86                '(DADOS FICTICIOS)'.
+       87            05  FILLER                 PIC X(60) VALUE SPACES.
+       88            05  FILLER                 PIC X(07) VALUE 'PAGINA '.
+       89            05  CB1-PAGINA             PIC ZZZ9.
+       90            05  FILLER                 PIC X(01) VALUE SPACE.
+       91        01  WS-CAB-2.
+       92            05  FILLER                 PIC X(18) VALUE 'CARTAO'.
+       93            05  FILLER                 PIC X(12) VALUE 'DATA'.
+       94            05  FILLER                 PIC X(06) VALUE 'MCC'.
+       95            05  FILLER                 PIC X(32) VALUE 'CATEGORIA'.
+       96            05  FILLER                 PIC X(22) VALUE 'ESTABELECIMENTO'.
+       97            05  FILLER                 PIC X(06) VALUE 'PAIS'.
+       98            05  FILLER                 PIC X(16) VALUE
+       99                '           VALOR'.
+      100            05  FILLER                 PIC X(02) VALUE SPACES.
+      101            05  FILLER                 PIC X(18) VALUE 'OBS'.
+      102        01  WS-DETALHE.
+      103            05  DT-CARTAO              PIC X(16).
+      104            05  FILLER                 PIC X(02) VALUE SPACES.
+      105            05  DT-DATA                PIC 9999/99/99.
+      106            05  FILLER                 PIC X(02) VALUE SPACES.
+      107            05  DT-MCC                 PIC 9(04).
+      108            05  FILLER                 PIC X(02) VALUE SPACES.
+      109            05  DT-CATEGORIA           PIC X(30).
+      110            05  FILLER                 PIC X(02) VALUE SPACES.
+      111            05  DT-ESTABELECIMENTO     PIC X(20).
+      112            05  FILLER                 PIC X(02) VALUE SPACES.
+      113            05  DT-PAIS                PIC X(03).
+      114            05  FILLER                 PIC X(03) VALUE SPACES.
+      115            05  DT-VALOR               PIC ZZZ,ZZZ,ZZ9.99.
+      116            05  FILLER                 PIC X(04) VALUE SPACES.
+      117            05  DT-OBS                 PIC X(18).
+      118        01  WS-LINHA-TOTAL-CARTAO.
+      119            05  FILLER                 PIC X(18) VALUE SPACES.
+      120            05  FILLER                 PIC X(20) VALUE
+      121                'TOTAL DO CARTAO'.
+      122            05  TC-CARTAO              PIC X(16).
+      123            05  FILLER                 PIC X(43) VALUE SPACES.
+      124            05  TC-VALOR               PIC ZZ,ZZZ,ZZZ,ZZ9.99.
+      125        01  WS-LINHA-MCC.
+      126            05  FILLER                 PIC X(04) VALUE SPACES.
+      127            05  LM-MCC                 PIC 9(04).
+      128            05  FILLER                 PIC X(02) VALUE SPACES.
+      129            05  LM-DESCRICAO           PIC X(30).
+      130            05  FILLER                 PIC X(02) VALUE SPACES.
+      131            05  LM-QTD                 PIC Z,ZZZ,ZZ9.
+      132            05  FILLER                 PIC X(04) VALUE SPACES.
+      133            05  LM-VALOR               PIC ZZ,ZZZ,ZZZ,ZZ9.99.
+      134        01  WS-LINHA-GERAL.
+      135            05  FILLER                 PIC X(20) VALUE
+      136                'TOTAL GERAL'.
+      137            05  FILLER                 PIC X(10) VALUE 'CARTOES: '.
+      138            05  LG-QTD-CARTOES         PIC Z,ZZZ,ZZ9.
+      139            05  FILLER                 PIC X(10) VALUE SPACES.
+      140            05  FILLER                 PIC X(08) VALUE 'VALOR: '.
+      141            05  LG-VALOR               PIC ZZZ,ZZZ,ZZZ,ZZ9.99.
+      142 
+      143        PROCEDURE DIVISION.
+      144        0000-PRINCIPAL.
+      145            PERFORM 1000-INICIALIZAR
+      146            PERFORM 2000-PROCESSAR-CARTAO UNTIL WS-FS-APR-FIM
+      147            PERFORM 3000-FINALIZAR
+      148            GOBACK.
+      149 
+      150        1000-INICIALIZAR.
+      151            OPEN INPUT TABELA-MCC
+      152            IF NOT WS-FS-MCC-OK
+      153               DISPLAY 'FATRELAT - ERRO NO OPEN DE MCCTAB. FS='
+      154                       WS-FS-MCC
+      155               PERFORM 9900-ENCERRAR-COM-ERRO
+      156            END-IF
+      157            INITIALIZE WS-TABELA-MCC
+      158            PERFORM VARYING IX-MCC FROM 1 BY 1
+      159                    UNTIL IX-MCC > WS-MAX-MCC
+      160               MOVE 9999 TO WS-MCC-CODIGO(IX-MCC)
+      161            END-PERFORM
+      162            PERFORM 1100-CARREGAR-MCC UNTIL WS-FS-MCC-FIM
+      163            CLOSE TABELA-MCC
+      164 
+      165            OPEN INPUT  TRANS-APROVADA
+      166            IF NOT WS-FS-APR-OK
+      167               DISPLAY 'FATRELAT - ERRO NO OPEN DE APROVIN. FS='
+      168                       WS-FS-APROVADA
+      169               PERFORM 9900-ENCERRAR-COM-ERRO
+      170            END-IF
+      171            OPEN OUTPUT RELATORIO
+      172            IF NOT WS-FS-REL-OK
+      173               DISPLAY 'FATRELAT - ERRO NO OPEN DE RELATOUT. FS='
+      174                       WS-FS-RELATORIO
+      175               PERFORM 9900-ENCERRAR-COM-ERRO
+      176            END-IF
+      177            PERFORM 8000-LER-APROVADA
+      178            .
+      179 
+      180        1100-CARREGAR-MCC.
+      181            READ TABELA-MCC
+      182               AT END
+      183                  CONTINUE
+      184               NOT AT END
+      185                  IF WS-QTD-MCC >= WS-MAX-MCC
+      186                     DISPLAY 'FATRELAT - TABELA MCC CHEIA'
+      187                     PERFORM 9900-ENCERRAR-COM-ERRO
+      188                  END-IF
+      189                  ADD 1 TO WS-QTD-MCC
+      190                  MOVE MC-CODIGO    TO WS-MCC-CODIGO(WS-QTD-MCC)
+      191                  MOVE MC-DESCRICAO TO WS-MCC-DESCRICAO(WS-QTD-MCC)
+      192            END-READ
+      193            .
+      194 
+      195       *----------------------------------------------------------------*
+      196       * QUEBRA DE CONTROLE: UM CICLO DESTE PARAGRAFO = UM CARTAO       *
+      197       *----------------------------------------------------------------*
+      198        2000-PROCESSAR-CARTAO.
+      199            MOVE TI-NUM-CARTAO TO WS-CARTAO-ANTERIOR
+      200            MOVE ZERO          TO WS-TOTAL-CARTAO
+      201            ADD 1              TO WS-QTD-CARTOES
+      202            PERFORM 2100-PROCESSAR-TRANSACAO
+      203               UNTIL WS-FS-APR-FIM
+      204                  OR TI-NUM-CARTAO NOT = WS-CARTAO-ANTERIOR
+      205            PERFORM 2200-IMPRIMIR-TOTAL-CARTAO
+      206            .
+      207 
+      208        2100-PROCESSAR-TRANSACAO.
+      209            SEARCH ALL WS-MCC-ITEM
+      210               AT END
+      211                  MOVE 'CATEGORIA NAO CADASTRADA' TO WS-DESC-CATEGORIA
+      212               WHEN WS-MCC-CODIGO(IX-MCC) = TI-MCC
+      213                  MOVE WS-MCC-DESCRICAO(IX-MCC)   TO WS-DESC-CATEGORIA
+      214                  ADD TI-VALOR TO WS-MCC-TOTAL(IX-MCC)
+      215                  ADD 1        TO WS-MCC-QTD(IX-MCC)
+      216            END-SEARCH
+      217 
+      218            MOVE TI-NUM-CARTAO      TO WS-CARTAO-ABERTO
+      219            PERFORM 9800-MASCARAR-CARTAO
+      220            MOVE WS-CARTAO-MASC     TO DT-CARTAO
+      221            MOVE TI-DATA-TRANSACAO  TO DT-DATA
+      222            MOVE TI-MCC             TO DT-MCC
+      223            MOVE WS-DESC-CATEGORIA  TO DT-CATEGORIA
+      224            MOVE TI-ESTABELECIMENTO TO DT-ESTABELECIMENTO
+      225            MOVE TI-PAIS            TO DT-PAIS
+      226            MOVE TI-VALOR           TO DT-VALOR
+      227            IF TI-SUSPEITA
+      228               MOVE 'SUSPEITA'      TO DT-OBS
+      229            ELSE
+      230               MOVE SPACES          TO DT-OBS
+      231            END-IF
+      232            PERFORM 7000-IMPRIMIR-DETALHE
+      233 
+      234            ADD TI-VALOR TO WS-TOTAL-CARTAO WS-TOTAL-GERAL
+      235            PERFORM 8000-LER-APROVADA
+      236            .
+      237 
+      238        2200-IMPRIMIR-TOTAL-CARTAO.
+      239            MOVE WS-CARTAO-ANTERIOR TO WS-CARTAO-ABERTO
+      240            PERFORM 9800-MASCARAR-CARTAO
+      241            MOVE WS-CARTAO-MASC     TO TC-CARTAO
+      242            MOVE WS-TOTAL-CARTAO    TO TC-VALOR
+      243            WRITE REG-RELATORIO FROM WS-LINHA-TOTAL-CARTAO
+      244                  AFTER ADVANCING 1 LINE
+      245            MOVE SPACES TO REG-RELATORIO
+      246            WRITE REG-RELATORIO AFTER ADVANCING 1 LINE
+      247            ADD 2 TO WS-CONTA-LINHAS
+      248            .
+      249 
+      250        3000-FINALIZAR.
+      251            PERFORM 7100-IMPRIMIR-CABECALHO
+      252            MOVE 'TOTAL POR CATEGORIA (MCC)' TO REG-RELATORIO
+      253            WRITE REG-RELATORIO AFTER ADVANCING 2 LINES
+      254            PERFORM VARYING IX-MCC FROM 1 BY 1
+      255                    UNTIL IX-MCC > WS-QTD-MCC
+      256               MOVE WS-MCC-CODIGO(IX-MCC)    TO LM-MCC
+      257               MOVE WS-MCC-DESCRICAO(IX-MCC) TO LM-DESCRICAO
+      258               MOVE WS-MCC-QTD(IX-MCC)       TO LM-QTD
+      259               MOVE WS-MCC-TOTAL(IX-MCC)     TO LM-VALOR
+      260               WRITE REG-RELATORIO FROM WS-LINHA-MCC
+      261                     AFTER ADVANCING 1 LINE
+      262            END-PERFORM
+      263            MOVE WS-QTD-CARTOES TO LG-QTD-CARTOES
+      264            MOVE WS-TOTAL-GERAL TO LG-VALOR
+      265            WRITE REG-RELATORIO FROM WS-LINHA-GERAL
+      266                  AFTER ADVANCING 2 LINES
+      267            CLOSE TRANS-APROVADA RELATORIO
+      268            DISPLAY 'FATRELAT - CARTOES NO RELATORIO: ' WS-QTD-CARTOES
+      269            .
+      270 
+      271        7000-IMPRIMIR-DETALHE.
+      272            IF WS-CONTA-LINHAS >= WS-LINHAS-POR-PAGINA
+      273               PERFORM 7100-IMPRIMIR-CABECALHO
+      274            END-IF
+      275            WRITE REG-RELATORIO FROM WS-DETALHE
+      276                  AFTER ADVANCING 1 LINE
+      277            ADD 1 TO WS-CONTA-LINHAS
+      278            .
+      279 
+      280        7100-IMPRIMIR-CABECALHO.
+      281            ADD 1 TO WS-PAGINA
+      282            MOVE WS-PAGINA TO CB1-PAGINA
+      283            WRITE REG-RELATORIO FROM WS-CAB-1 AFTER ADVANCING PAGE
+      284            WRITE REG-RELATORIO FROM WS-CAB-2 AFTER ADVANCING 2 LINES
+      285            MOVE ALL '-' TO REG-RELATORIO
+      286            WRITE REG-RELATORIO AFTER ADVANCING 1 LINE
+      287            MOVE 4 TO WS-CONTA-LINHAS
+      288            .
+      289 
+      290        8000-LER-APROVADA.
+      291            READ TRANS-APROVADA
+      292               AT END CONTINUE
+      293            END-READ
+      294            IF NOT WS-FS-APR-OK AND NOT WS-FS-APR-FIM
+      295               DISPLAY 'FATRELAT - ERRO NO READ DE APROVIN. FS='
+      296                       WS-FS-APROVADA
+      297               PERFORM 9900-ENCERRAR-COM-ERRO
+      298            END-IF
+      299            .
+      300 
+      301            COPY CPMASCAR.
+      302 
+      303        9900-ENCERRAR-COM-ERRO.
+      304            MOVE 16 TO RETURN-CODE
+      305            STOP RUN
+      306            .
