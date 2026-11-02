@@ -4,7 +4,7 @@
 //* AULAS 5 E 6 - EXECUTA UM PROGRAMA SEM ARQUIVOS (SO DISPLAY)
 //* A SAIDA DO DISPLAY APARECE NO DD SYSOUT DO SPOOL.
 //*--------------------------------------------------------------------
-//         SET PGM=FATRELAT
+//         SET PGM=FATFILTR
 //RUN      EXEC PGM=&PGM
 //STEPLIB  DD DSN=&SYSUID..FATURA.LOAD,DISP=SHR
 //SYSOUT   DD SYSOUT=*

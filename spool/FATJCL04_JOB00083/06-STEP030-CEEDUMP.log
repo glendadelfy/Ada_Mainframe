@@ -1,0 +1,8 @@
+libcob: sistema\work\FATFILTR.cbl:130: error: 'TR-DATA-TRANSACAO' (Type: NUMERIC DISPLAY) not numeric: '\015\012990000'
+libcob: sistema\work\FATFILTR.cbl:130: warning: implicit CLOSE of TRANS-REJEITADA ('REJEIOUT')
+libcob: sistema\work\FATFILTR.cbl:130: warning: implicit CLOSE of TRANS-APROVADA ('APROVOUT')
+libcob: sistema\work\FATFILTR.cbl:130: warning: implicit CLOSE of TRANS-ENTRADA ('TRANSIN')
+
+ Last statement of "FATFILTR" was MOVE
+	2100-VALIDAR-TRANSACAO at sistema\work\FATFILTR.cbl:130
+ Started by C:\Users\glend\Downloads\mainframe-local\mainframe-local\catalogo\ALUNO.FATURA.LOAD\FATFILTR.exe
