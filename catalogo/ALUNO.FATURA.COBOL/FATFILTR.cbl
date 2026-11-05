@@ -68,7 +68,8 @@
                88  WS-MES-VALIDO                VALUE 01 THRU 12.
            05  WS-DV-DIA              PIC 9(02).
                88  WS-DIA-VALIDO                VALUE 01 THRU 31.
-
+        01  WS-PGM-LUHN                PIC X(08) VALUE 'LUHNVALD'.
+           COPY CPLUHN.
        PROCEDURE DIVISION.
        0000-PRINCIPAL.
 
@@ -128,6 +129,9 @@
            MOVE SPACES TO REG-REJEITADA
            SET WS-REGISTRO-VALIDO TO TRUE
            MOVE TR-DATA-TRANSACAO TO WS-DATA-VALIDAR
+           
+           MOVE TR-NUM-CARTAO     TO LK-NUM-CARTAO
+           CALL WS-PGM-LUHN USING LK-AREA-LUHN
 
            EVALUATE TRUE
               WHEN TR-VALOR IS NOT NUMERIC

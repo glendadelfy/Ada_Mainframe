@@ -1,0 +1,261 @@
+        1       *================================================================*
+        2       * PROGRAMA : FATFILTR (ESQUELETO PARA A TURMA)                   *
+        3       * AULA     : 7 - COBOL III, ARQUIVOS SEQUENCIAIS                 *
+        4       * OBJETIVO : LER AS TRANSACOES DO DIA (JA ORDENADAS PELO SORT),  *
+        5       *            VALIDAR, CLASSIFICAR E SEPARAR EM DOIS ARQUIVOS:    *
+        6       *            APROVADAS (FORMATO INTERNO, VALOR EM COMP-3) E      *
+        7       *            REJEITADAS (COM MOTIVO).                            *
+        8       * ENTRADA  : DD TRANSIN  - CPTRANS, FB 80                        *
+        9       * SAIDAS   : DD APROVOUT - CPTRANI, FB 80                        *
+       10       *            DD REJEIOUT - CPREJEI, FB 120                       *
+       11       * RETORNO  : 0 = OK, 4 = HOUVE REJEITADAS, 16 = ERRO DE ARQUIVO  *
+       12       *            OU CONTADORES QUE NAO FECHAM                        *
+       13       * O QUE VOCE ESCREVE: A LOGICA DE CADA PARAGRAFO DA PROCEDURE    *
+       14       * DIVISION, NO LUGAR DE CADA CONTINUE. AS DIVISOES DE            *
+       15       * IDENTIFICACAO, AMBIENTE E DADOS JA ESTAO PRONTAS.              *
+       16       * NESTA AULA NAO HA VALIDACAO DO NUMERO DO CARTAO: ELA ENTRA NA  *
+       17       * AULA 9, COM O SUBPROGRAMA LUHNVALD.                            *
+       18       *================================================================*
+       19        IDENTIFICATION DIVISION.
+       20        PROGRAM-ID. FATFILTR.
+       21 
+       22        ENVIRONMENT DIVISION.
+       23        INPUT-OUTPUT SECTION.
+       24        FILE-CONTROL.
+       25            SELECT TRANS-ENTRADA  ASSIGN TO TRANSIN
+       26                   FILE STATUS IS WS-FS-ENTRADA.
+       27            SELECT TRANS-APROVADA ASSIGN TO APROVOUT
+       28                   FILE STATUS IS WS-FS-APROVADA.
+       29            SELECT TRANS-REJEITADA ASSIGN TO REJEIOUT
+       30                   FILE STATUS IS WS-FS-REJEITADA.
+       31 
+       32        DATA DIVISION.
+       33        FILE SECTION.
+       34        FD  TRANS-ENTRADA
+       35            RECORDING MODE IS F.
+       36            COPY CPTRANS.
+       37        FD  TRANS-APROVADA
+       38            RECORDING MODE IS F.
+       39            COPY CPTRANI.
+       40        FD  TRANS-REJEITADA
+       41            RECORDING MODE IS F.
+       42            COPY CPREJEI.
+       43 
+       44        WORKING-STORAGE SECTION.
+       45        01  WS-FS-ENTRADA              PIC X(02).
+       46            88  WS-FS-ENT-OK                     VALUE '00'.
+       47            88  WS-FS-ENT-FIM                    VALUE '10'.
+       48        01  WS-FS-APROVADA             PIC X(02).
+       49            88  WS-FS-APR-OK                     VALUE '00'.
+       50        01  WS-FS-REJEITADA            PIC X(02).
+       51            88  WS-FS-REJ-OK                     VALUE '00'.
+       52 
+       53        01  WS-CONTADORES.
+       54            05  WS-QTD-LIDOS           PIC 9(07) VALUE ZERO.
+       55            05  WS-QTD-APROVADAS       PIC 9(07) VALUE ZERO.
+       56            05  WS-QTD-SUSPEITAS       PIC 9(07) VALUE ZERO.
+       57            05  WS-QTD-REJEITADAS      PIC 9(07) VALUE ZERO.
+       58 
+       59        01  WS-LIMITE-SUSPEITA         PIC 9(09)V99 VALUE 5000.00.
+       60 
+       61        01  WS-VALIDACAO               PIC X(01).
+       62            88  WS-REGISTRO-VALIDO               VALUE 'S'.
+       63            88  WS-REGISTRO-INVALIDO             VALUE 'N'.
+       64 
+       65        01  WS-DATA-VALIDAR.
+       66            05  WS-DV-ANO              PIC 9(04).
+       67            05  WS-DV-MES              PIC 9(02).
+       68                88  WS-MES-VALIDO                VALUE 01 THRU 12.
+       69            05  WS-DV-DIA              PIC 9(02).
+       70                88  WS-DIA-VALIDO                VALUE 01 THRU 31.
+       71         01  WS-PGM-LUHN                PIC X(08) VALUE 'LUHNVALID'.
+       72            COPY CPLUHN.
+       73        PROCEDURE DIVISION.
+       74        0000-PRINCIPAL.
+       75 
+       76            PERFORM 1000-INICIALIZAR
+       77               THRU 1000-FIM-INICIALIZAR
+       78            PERFORM 2000-PROCESSAR 
+       79               THRU 2000-FIM-PROCESSAR
+       80                  UNTIL WS-FS-ENT-FIM
+       81            PERFORM 3000-FINALIZAR
+       82               THRU 3000-FIM-FINALIZAR 
+       83            STOP RUN.
+       84 
+       85        1000-INICIALIZAR.
+       86 
+       87            OPEN INPUT TRANS-ENTRADA
+       88            IF NOT WS-FS-ENT-OK
+       89               DISPLAY 'FATFILTR - ERRO DE OPEN TRANSIN'
+       90               DISPLAY 'FS: ' WS-FS-ENTRADA
+       91               PERFORM 9900-ENCERRAR-COM-ERRO
+       92            END-IF
+       93 
+       94            OPEN OUTPUT TRANS-APROVADA
+       95            IF NOT WS-FS-APR-OK
+       96               DISPLAY 'FATFILTR - ERRO DE OPEN APROVOUT'
+       97               DISPLAY 'FS: ' WS-FS-APROVADA
+       98               PERFORM 9900-ENCERRAR-COM-ERRO
+       99            END-IF
+      100 
+      101            OPEN OUTPUT TRANS-REJEITADA
+      102            IF NOT WS-FS-REJ-OK
+      103               DISPLAY 'FATFILTR - ERRO DE OPEN REJEIOUT'
+      104                       'FS: ' WS-FS-REJEITADA
+      105               PERFORM 9900-ENCERRAR-COM-ERRO
+      106            END-IF
+      107 
+      108            PERFORM 8000-LER-TRANSACAO THRU 8000-FIM-LER-TRANSACAO.
+      109        1000-FIM-INICIALIZAR.
+      110             EXIT.
+      111        2000-PROCESSAR.
+      112            
+      113            PERFORM 2100-VALIDAR-TRANSACAO
+      114               THRU 2100-FIM-VALIDAR-TRANSACAO
+      115 
+      116            IF WS-REGISTRO-VALIDO
+      117               PERFORM 2200-GRAVAR-APROVADA
+      118                THRU 2200-FIM-GRAVAR-APROVADA
+      119            ELSE
+      120               PERFORM 2300-GRAVAR-REJEITADA
+      121                 THRU 2300-FIM-GRAVAR-REJEITADA 
+      122            END-IF
+      123 
+      124            PERFORM 8000-LER-TRANSACAO THRU 8000-FIM-LER-TRANSACAO.
+      125         2000-FIM-PROCESSAR.
+      126            EXIT.
+      127        2100-VALIDAR-TRANSACAO.
+      128 
+      129            MOVE SPACES TO REG-REJEITADA
+      130            SET WS-REGISTRO-VALIDO TO TRUE
+      131            MOVE TR-DATA-TRANSACAO TO WS-DATA-VALIDAR
+      132            
+      133            MOVE TR-NUM-CARTAO TO LK-NUM-CARTAO
+      134            CALL WS-PGM-LUHN USING LK-AREA-LUHN
+      135 
+      136            EVALUATE TRUE
+      137               WHEN TR-VALOR IS NOT NUMERIC
+      138                    SET WS-REGISTRO-INVALIDO   TO TRUE 
+      139                    SET RJ-VALOR-INVALIDO      TO TRUE
+      140                    MOVE 'VALOR NAO NUMERICO'
+      141                                             TO RJ-DESC-MOTIVO
+      142               WHEN TR-VALOR = ZERO
+      143                    SET WS-REGISTRO-INVALIDO   TO TRUE 
+      144                    SET RJ-VALOR-INVALIDO      TO TRUE
+      145                    MOVE 'VALOR ZERADO'
+      146                                             TO RJ-DESC-MOTIVO
+      147               WHEN NOT WS-MES-VALIDO
+      148                     SET WS-REGISTRO-INVALIDO TO TRUE
+      149                     SET RJ-DATA-INVALIDA TO TRUE
+      150                     MOVE 'DATA INVALIDA'
+      151                                             TO RJ-DESC-MOTIVO      
+      152                WHEN NOT WS-DIA-VALIDO
+      153                     SET WS-REGISTRO-INVALIDO TO TRUE
+      154                     SET RJ-DATA-INVALIDA TO TRUE
+      155                     MOVE 'DATA INVALIDA'
+      156                                             TO RJ-DESC-MOTIVO 
+      157                WHEN TR-NEGADA
+      158                     SET WS-REGISTRO-INVALIDO TO TRUE
+      159                     SET RJ-TRANSACAO-NEGADA TO TRUE
+      160                     MOVE 'TRANSACAO NEGADA'
+      161                                             TO RJ-DESC-MOTIVO           
+      162             END-EVALUATE.
+      163        2100-FIM-VALIDAR-TRANSACAO.
+      164            EXIT.
+      165        2200-GRAVAR-APROVADA.
+      166            MOVE SPACES TO REG-TRANS-INTERNA
+      167            INITIALIZE REG-TRANS-INTERNA
+      168            MOVE TR-NUM-CARTAO      TO TI-NUM-CARTAO
+      169            MOVE TR-DATA-TRANSACAO  TO TI-DATA-TRANSACAO
+      170            MOVE TR-HORA-TRANSACAO  TO TI-HORA-TRANSACAO
+      171            MOVE TR-VALOR           TO TI-VALOR
+      172            MOVE TR-MCC             TO TI-MCC
+      173            MOVE TR-PAIS            TO TI-PAIS
+      174            MOVE TR-COD-AUTORIZACAO TO TI-COD-AUTORIZACAO
+      175            MOVE TR-ESTABELECIMENTO TO TI-ESTABELECIMENTO
+      176 
+      177            IF NOT TR-NACIONAL
+      178               AND TR-VALOR > WS-LIMITE-SUSPEITA
+      179 
+      180               SET TI-SUSPEITA TO TRUE
+      181               ADD 1 TO WS-QTD-SUSPEITAS
+      182            ELSE
+      183               SET TI-NORMAL TO TRUE
+      184            END-IF
+      185 
+      186            WRITE REG-TRANS-INTERNA
+      187 
+      188            IF NOT WS-FS-APR-OK
+      189               DISPLAY 'FATFILTR - ERRO WRITE APROVOUT'
+      190               DISPLAY 'FS: ' WS-FS-APROVADA
+      191               PERFORM 9900-ENCERRAR-COM-ERRO
+      192            END-IF
+      193 
+      194            ADD 1 TO WS-QTD-APROVADAS
+      195            .
+      196 
+      197        2200-FIM-GRAVAR-APROVADA.
+      198             EXIT.
+      199 
+      200        2300-GRAVAR-REJEITADA.
+      201            MOVE REG-TRANSACAO
+      202               TO RJ-REGISTRO-ORIGINAL
+      203 
+      204            WRITE REG-REJEITADA
+      205 
+      206            IF NOT WS-FS-REJ-OK
+      207               DISPLAY 'FATFILTR - ERRO WRITE REJEIOUT'
+      208               DISPLAY 'FS: ' WS-FS-REJEITADA
+      209               PERFORM 9900-ENCERRAR-COM-ERRO
+      210            END-IF
+      211 
+      212            ADD 1 TO WS-QTD-REJEITADAS
+      213            .
+      214        2300-FIM-GRAVAR-REJEITADA.
+      215            EXIT.
+      216        3000-FINALIZAR.
+      217            CLOSE TRANS-ENTRADA
+      218                  TRANS-APROVADA
+      219                  TRANS-REJEITADA
+      220 
+      221            DISPLAY 'QTD LIDOS      : ' WS-QTD-LIDOS
+      222            DISPLAY 'QTD APROVADAS  : ' WS-QTD-APROVADAS
+      223            DISPLAY 'QTD SUSPEITAS  : ' WS-QTD-SUSPEITAS
+      224            DISPLAY 'QTD REJEITADAS : ' WS-QTD-REJEITADAS
+      225 
+      226            IF WS-QTD-LIDOS NOT =
+      227               WS-QTD-APROVADAS + WS-QTD-REJEITADAS
+      228 
+      229               MOVE 16 TO RETURN-CODE
+      230            ELSE
+      231               IF WS-QTD-REJEITADAS > ZERO
+      232                  MOVE 4 TO RETURN-CODE
+      233               ELSE
+      234                  MOVE 0 TO RETURN-CODE
+      235               END-IF
+      236            END-IF
+      237            .
+      238        3000-FIM-FINALIZAR.
+      239            EXIT.
+      240        8000-LER-TRANSACAO.
+      241 
+      242            READ TRANS-ENTRADA
+      243                 AT END 
+      244                    CONTINUE
+      245                 NOT AT END
+      246                    ADD 1 TO WS-QTD-LIDOS
+      247            END-READ
+      248 
+      249            IF NOT WS-FS-ENT-OK AND NOT WS-FS-ENT-FIM 
+      250               DISPLAY 'FATFILTR - ERRO DE READ TRANS-ENTRADA (TRANSIN)'
+      251                       'FS: ' WS-FS-ENTRADA 
+      252               PERFORM 9900-ENCERRAR-COM-ERRO
+      253            END-IF
+      254            .
+      255        8000-FIM-LER-TRANSACAO. 
+      256            EXIT.
+      257        9900-ENCERRAR-COM-ERRO.
+      258       *    PRONTO: ENCERRA COM RC 16 PARA IMPEDIR OS STEPS SEGUINTES.
+      259            MOVE 16 TO RETURN-CODE
+      260            STOP RUN
+      261            .

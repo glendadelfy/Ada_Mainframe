@@ -1,0 +1,53 @@
+        1       *================================================================*
+        2       * PROGRAMA : LUHNVALD (SUBPROGRAMA)                              *
+        3       * AULA     : 9 - MODULARIZACAO                                   *
+        4       * OBJETIVO : VALIDAR O DIGITO VERIFICADOR DO NUMERO DO CARTAO    *
+        5       *            PELO ALGORITMO DE LUHN. EXTRAIDO DO FATCLASS.       *
+        6       * CHAMADA  : CALL 'LUHNVALD' USING LK-AREA-LUHN (COPY CPLUHN)    *
+        7       * RETORNO  : LK-RESULTADO = 'S' (VALIDO) OU 'N' (INVALIDO)       *
+        8       *================================================================*
+        9        IDENTIFICATION DIVISION.
+       10        PROGRAM-ID. LUHNVALD.
+       11 
+       12        DATA DIVISION.
+       13        WORKING-STORAGE SECTION.
+       14        01  WS-LUHN-CARTAO             PIC X(16).
+       15        01  WS-LUHN-DIGITOS REDEFINES WS-LUHN-CARTAO.
+       16            05  WS-LUHN-DIGITO         PIC 9(01) OCCURS 16 TIMES.
+       17        01  WS-LUHN-POS                PIC 9(02).
+       18        01  WS-LUHN-PARCELA            PIC 9(02).
+       19        01  WS-LUHN-SOMA               PIC 9(03).
+       20        01  WS-LUHN-DOBRAR             PIC X(01).
+       21            88  WS-LUHN-DOBRA                    VALUE 'S'.
+       22            88  WS-LUHN-NAO-DOBRA                VALUE 'N'.
+       23 
+       24        LINKAGE SECTION.
+       25            COPY CPLUHN.
+       26 
+       27        PROCEDURE DIVISION USING LK-AREA-LUHN.
+       28        0000-PRINCIPAL.
+       29            SET LK-CARTAO-INVALIDO TO TRUE
+       30            MOVE LK-NUM-CARTAO     TO WS-LUHN-CARTAO
+       31            IF WS-LUHN-CARTAO IS NOT NUMERIC
+       32               GOBACK
+       33            END-IF
+       34            MOVE ZERO              TO WS-LUHN-SOMA
+       35            SET WS-LUHN-NAO-DOBRA  TO TRUE
+       36            PERFORM VARYING WS-LUHN-POS FROM 16 BY -1
+       37                    UNTIL WS-LUHN-POS < 1
+       38               MOVE WS-LUHN-DIGITO(WS-LUHN-POS) TO WS-LUHN-PARCELA
+       39               IF WS-LUHN-DOBRA
+       40                  COMPUTE WS-LUHN-PARCELA = WS-LUHN-PARCELA * 2
+       41                  IF WS-LUHN-PARCELA > 9
+       42                     SUBTRACT 9 FROM WS-LUHN-PARCELA
+       43                  END-IF
+       44                  SET WS-LUHN-NAO-DOBRA TO TRUE
+       45               ELSE
+       46                  SET WS-LUHN-DOBRA     TO TRUE
+       47               END-IF
+       48               ADD WS-LUHN-PARCELA TO WS-LUHN-SOMA
+       49            END-PERFORM
+       50            IF FUNCTION MOD(WS-LUHN-SOMA, 10) = ZERO
+       51               SET LK-CARTAO-VALIDO TO TRUE
+       52            END-IF
+       53            GOBACK.

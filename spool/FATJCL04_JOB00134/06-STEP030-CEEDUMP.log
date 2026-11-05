@@ -1,0 +1,8 @@
+libcob: sistema\work\FATFILTR.cbl:134: error: module 'LUHNVALI' not found
+libcob: sistema\work\FATFILTR.cbl:134: warning: implicit CLOSE of TRANS-REJEITADA ('REJEIOUT')
+libcob: sistema\work\FATFILTR.cbl:134: warning: implicit CLOSE of TRANS-APROVADA ('APROVOUT')
+libcob: sistema\work\FATFILTR.cbl:134: warning: implicit CLOSE of TRANS-ENTRADA ('TRANSIN')
+
+ Last statement of "FATFILTR" was CALL
+	2100-VALIDAR-TRANSACAO at sistema\work\FATFILTR.cbl:134
+ Started by C:\Users\glend\Downloads\mainframe-local\mainframe-local\catalogo\ALUNO.FATURA.LOAD\FATFILTR.exe

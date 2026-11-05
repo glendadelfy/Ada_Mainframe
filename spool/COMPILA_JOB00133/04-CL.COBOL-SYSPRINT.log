@@ -1,0 +1,371 @@
+SIM031I COMPILACAO COM GNUCOBOL (-std=ibm), PROGRAMA FATFILTR (PRINCIPAL)
+
+ALUNO.FATURA.COBOL(FATFILTR):71: warning: value size exceeds data size [-Wothers]
+   69 |            05  WS-DV-DIA              PIC 9(02).
+   70 |                88  WS-DIA-VALIDO                VALUE 01 THRU 31.
+   71 >         01  WS-PGM-LUHN                PIC X(08) VALUE 'LUHNVALID'.
+   72 |            COPY CPLUHN.
+   73 |        PROCEDURE DIVISION.
+ALUNO.FATURA.COBOL(FATFILTR):71: note: value size is 9 [-Wothers]
+
+GnuCOBOL 3.3-dev.0      sistema\work\FATFILT Wed Nov 04 2026 22:03:33  Page 0001
+
+LINE    PG/LN  A...B............................................................
+
+000001        *================================================================*
+000002        * PROGRAMA : FATFILTR (ESQUELETO PARA A TURMA)                   *
+000003        * AULA     : 7 - COBOL III, ARQUIVOS SEQUENCIAIS                 *
+000004        * OBJETIVO : LER AS TRANSACOES DO DIA (JA ORDENADAS PELO SORT),  *
+000005        *            VALIDAR, CLASSIFICAR E SEPARAR EM DOIS ARQUIVOS:    *
+000006        *            APROVADAS (FORMATO INTERNO, VALOR EM COMP-3) E      *
+000007        *            REJEITADAS (COM MOTIVO).                            *
+000008        * ENTRADA  : DD TRANSIN  - CPTRANS, FB 80                        *
+000009        * SAIDAS   : DD APROVOUT - CPTRANI, FB 80                        *
+000010        *            DD REJEIOUT - CPREJEI, FB 120                       *
+000011        * RETORNO  : 0 = OK, 4 = HOUVE REJEITADAS, 16 = ERRO DE ARQUIVO  *
+000012        *            OU CONTADORES QUE NAO FECHAM                        *
+000013        * O QUE VOCE ESCREVE: A LOGICA DE CADA PARAGRAFO DA PROCEDURE    *
+000014        * DIVISION, NO LUGAR DE CADA CONTINUE. AS DIVISOES DE            *
+000015        * IDENTIFICACAO, AMBIENTE E DADOS JA ESTAO PRONTAS.              *
+000016        * NESTA AULA NAO HA VALIDACAO DO NUMERO DO CARTAO: ELA ENTRA NA  *
+000017        * AULA 9, COM O SUBPROGRAMA LUHNVALD.                            *
+000018        *================================================================*
+000019         IDENTIFICATION DIVISION.
+000020         PROGRAM-ID. FATFILTR.
+000021
+000022         ENVIRONMENT DIVISION.
+000023         INPUT-OUTPUT SECTION.
+000024         FILE-CONTROL.
+000025             SELECT TRANS-ENTRADA  ASSIGN TO TRANSIN
+000026                    FILE STATUS IS WS-FS-ENTRADA.
+000027             SELECT TRANS-APROVADA ASSIGN TO APROVOUT
+000028                    FILE STATUS IS WS-FS-APROVADA.
+000029             SELECT TRANS-REJEITADA ASSIGN TO REJEIOUT
+000030                    FILE STATUS IS WS-FS-REJEITADA.
+000031
+000032         DATA DIVISION.
+000033         FILE SECTION.
+000034         FD  TRANS-ENTRADA
+000035             RECORDING MODE IS F.
+000036             COPY CPTRANS.
+000001C       *================================================================*
+000002C       * CPTRANS  - TRANSACAO RECEBIDA DA BANDEIRA (ARQUIVO EXTERNO)    *
+000003C       * LRECL 80, RECFM FB. CAMPOS NUMERICOS EM FORMATO DISPLAY PARA   *
+000004C       * QUE O ARQUIVO POSSA SER TRANSFERIDO COMO TEXTO.                *
+000005C       * PROJETO-GUIA FATURA NOTURNA - DADOS 100% FICTICIOS             *
+000006C       *================================================================*
+000007C        01  REG-TRANSACAO.
+000008C            05  TR-NUM-CARTAO          PIC X(16).
+000009C            05  TR-DATA-TRANSACAO      PIC 9(08).
+000010C            05  TR-HORA-TRANSACAO      PIC 9(06).
+000011C            05  TR-VALOR               PIC 9(09)V99.
+000012C            05  TR-VALOR-X REDEFINES TR-VALOR
+000013C                                       PIC X(11).
+000014C            05  TR-MCC                 PIC 9(04).
+000015C            05  TR-PAIS                PIC X(03).
+000016C                88  TR-NACIONAL                  VALUE 'BRA'.
+GnuCOBOL 3.3-dev.0      sistema\work\FATFILT Wed Nov 04 2026 22:03:33  Page 0002
+
+LINE    PG/LN  A...B............................................................
+
+000017C            05  TR-COD-AUTORIZACAO     PIC X(06).
+000018C            05  TR-STATUS              PIC X(01).
+000019C                88  TR-APROVADA                  VALUE 'A'.
+000020C                88  TR-NEGADA                    VALUE 'N'.
+000021C            05  TR-ESTABELECIMENTO     PIC X(20).
+000022C            05  FILLER                 PIC X(05).
+000037         FD  TRANS-APROVADA
+000038             RECORDING MODE IS F.
+000039             COPY CPTRANI.
+000001C       *================================================================*
+000002C       * CPTRANI  - TRANSACAO INTERNA (APOS VALIDACAO)                  *
+000003C       * LRECL 80, RECFM FB. VALOR EM COMP-3 (PACKED DECIMAL).          *
+000004C       * ESTE ARQUIVO E BINARIO: NAO TRANSFERIR COMO TEXTO.             *
+000005C       *================================================================*
+000006C        01  REG-TRANS-INTERNA.
+000007C            05  TI-NUM-CARTAO          PIC X(16).
+000008C            05  TI-DATA-TRANSACAO      PIC 9(08).
+000009C            05  TI-HORA-TRANSACAO      PIC 9(06).
+000010C            05  TI-VALOR               PIC S9(09)V99 COMP-3.
+000011C            05  TI-MCC                 PIC 9(04).
+000012C            05  TI-PAIS                PIC X(03).
+000013C            05  TI-COD-AUTORIZACAO     PIC X(06).
+000014C            05  TI-CLASSIFICACAO       PIC X(01).
+000015C                88  TI-NORMAL                    VALUE 'N'.
+000016C                88  TI-SUSPEITA                  VALUE 'S'.
+000017C            05  TI-ESTABELECIMENTO     PIC X(20).
+000018C            05  FILLER                 PIC X(10).
+000040         FD  TRANS-REJEITADA
+000041             RECORDING MODE IS F.
+000042             COPY CPREJEI.
+000001C       *================================================================*
+000002C       * CPREJEI  - TRANSACAO REJEITADA NA VALIDACAO                    *
+000003C       * LRECL 120, RECFM FB.                                           *
+000004C       *================================================================*
+000005C        01  REG-REJEITADA.
+000006C            05  RJ-REGISTRO-ORIGINAL   PIC X(80).
+000007C            05  RJ-COD-MOTIVO          PIC X(02).
+000008C                88  RJ-CARTAO-INVALIDO           VALUE '01'.
+000009C                88  RJ-VALOR-INVALIDO            VALUE '02'.
+000010C                88  RJ-DATA-INVALIDA             VALUE '03'.
+000011C                88  RJ-TRANSACAO-NEGADA          VALUE '04'.
+000012C            05  RJ-DESC-MOTIVO         PIC X(30).
+000013C            05  FILLER                 PIC X(08).
+000043
+000044         WORKING-STORAGE SECTION.
+000045         01  WS-FS-ENTRADA              PIC X(02).
+000046             88  WS-FS-ENT-OK                     VALUE '00'.
+000047             88  WS-FS-ENT-FIM                    VALUE '10'.
+000048         01  WS-FS-APROVADA             PIC X(02).
+000049             88  WS-FS-APR-OK                     VALUE '00'.
+000050         01  WS-FS-REJEITADA            PIC X(02).
+000051             88  WS-FS-REJ-OK                     VALUE '00'.
+GnuCOBOL 3.3-dev.0      sistema\work\FATFILT Wed Nov 04 2026 22:03:33  Page 0003
+
+LINE    PG/LN  A...B............................................................
+
+000052
+000053         01  WS-CONTADORES.
+000054             05  WS-QTD-LIDOS           PIC 9(07) VALUE ZERO.
+000055             05  WS-QTD-APROVADAS       PIC 9(07) VALUE ZERO.
+000056             05  WS-QTD-SUSPEITAS       PIC 9(07) VALUE ZERO.
+000057             05  WS-QTD-REJEITADAS      PIC 9(07) VALUE ZERO.
+000058
+000059         01  WS-LIMITE-SUSPEITA         PIC 9(09)V99 VALUE 5000.00.
+000060
+000061         01  WS-VALIDACAO               PIC X(01).
+000062             88  WS-REGISTRO-VALIDO               VALUE 'S'.
+000063             88  WS-REGISTRO-INVALIDO             VALUE 'N'.
+000064
+000065         01  WS-DATA-VALIDAR.
+000066             05  WS-DV-ANO              PIC 9(04).
+000067             05  WS-DV-MES              PIC 9(02).
+000068                 88  WS-MES-VALIDO                VALUE 01 THRU 12.
+000069             05  WS-DV-DIA              PIC 9(02).
+000070                 88  WS-DIA-VALIDO                VALUE 01 THRU 31.
+000071          01  WS-PGM-LUHN                PIC X(08) VALUE 'LUHNVALID'.
+warning: value size exceeds data size
+000072             COPY CPLUHN.
+000001C       *================================================================*
+000002C       * CPLUHN   - AREA DE COMUNICACAO COM O SUBPROGRAMA LUHNVALD      *
+000003C       *================================================================*
+000004C        01  LK-AREA-LUHN.
+000005C            05  LK-NUM-CARTAO          PIC X(16).
+000006C            05  LK-RESULTADO           PIC X(01).
+000007C                88  LK-CARTAO-VALIDO             VALUE 'S'.
+000008C                88  LK-CARTAO-INVALIDO           VALUE 'N'.
+000073         PROCEDURE DIVISION.
+000074         0000-PRINCIPAL.
+000075
+000076             PERFORM 1000-INICIALIZAR
+000077                THRU 1000-FIM-INICIALIZAR
+000078             PERFORM 2000-PROCESSAR
+000079                THRU 2000-FIM-PROCESSAR
+000080                   UNTIL WS-FS-ENT-FIM
+000081             PERFORM 3000-FINALIZAR
+000082                THRU 3000-FIM-FINALIZAR
+000083             STOP RUN.
+000084
+000085         1000-INICIALIZAR.
+000086
+000087             OPEN INPUT TRANS-ENTRADA
+000088             IF NOT WS-FS-ENT-OK
+000089                DISPLAY 'FATFILTR - ERRO DE OPEN TRANSIN'
+000090                DISPLAY 'FS: ' WS-FS-ENTRADA
+000091                PERFORM 9900-ENCERRAR-COM-ERRO
+000092             END-IF
+000093
+000094             OPEN OUTPUT TRANS-APROVADA
+GnuCOBOL 3.3-dev.0      sistema\work\FATFILT Wed Nov 04 2026 22:03:33  Page 0004
+
+LINE    PG/LN  A...B............................................................
+
+000095             IF NOT WS-FS-APR-OK
+000096                DISPLAY 'FATFILTR - ERRO DE OPEN APROVOUT'
+000097                DISPLAY 'FS: ' WS-FS-APROVADA
+000098                PERFORM 9900-ENCERRAR-COM-ERRO
+000099             END-IF
+000100
+000101             OPEN OUTPUT TRANS-REJEITADA
+000102             IF NOT WS-FS-REJ-OK
+000103                DISPLAY 'FATFILTR - ERRO DE OPEN REJEIOUT'
+000104                        'FS: ' WS-FS-REJEITADA
+000105                PERFORM 9900-ENCERRAR-COM-ERRO
+000106             END-IF
+000107
+000108             PERFORM 8000-LER-TRANSACAO THRU 8000-FIM-LER-TRANSACAO.
+000109         1000-FIM-INICIALIZAR.
+000110              EXIT.
+000111         2000-PROCESSAR.
+000112
+000113             PERFORM 2100-VALIDAR-TRANSACAO
+000114                THRU 2100-FIM-VALIDAR-TRANSACAO
+000115
+000116             IF WS-REGISTRO-VALIDO
+000117                PERFORM 2200-GRAVAR-APROVADA
+000118                 THRU 2200-FIM-GRAVAR-APROVADA
+000119             ELSE
+000120                PERFORM 2300-GRAVAR-REJEITADA
+000121                  THRU 2300-FIM-GRAVAR-REJEITADA
+000122             END-IF
+000123
+000124             PERFORM 8000-LER-TRANSACAO THRU 8000-FIM-LER-TRANSACAO.
+000125          2000-FIM-PROCESSAR.
+000126             EXIT.
+000127         2100-VALIDAR-TRANSACAO.
+000128
+000129             MOVE SPACES TO REG-REJEITADA
+000130             SET WS-REGISTRO-VALIDO TO TRUE
+000131             MOVE TR-DATA-TRANSACAO TO WS-DATA-VALIDAR
+000132
+000133             MOVE TR-NUM-CARTAO     TO LK-NUM-CARTAO
+000134             CALL WS-PGM-LUHN USING LK-AREA-LUHN
+000135
+000136             EVALUATE TRUE
+000137                WHEN TR-VALOR IS NOT NUMERIC
+000138                     SET WS-REGISTRO-INVALIDO   TO TRUE
+000139                     SET RJ-VALOR-INVALIDO      TO TRUE
+000140                     MOVE 'VALOR NAO NUMERICO'
+000141                                              TO RJ-DESC-MOTIVO
+000142                WHEN TR-VALOR = ZERO
+000143                     SET WS-REGISTRO-INVALIDO   TO TRUE
+000144                     SET RJ-VALOR-INVALIDO      TO TRUE
+000145                     MOVE 'VALOR ZERADO'
+000146                                              TO RJ-DESC-MOTIVO
+GnuCOBOL 3.3-dev.0      sistema\work\FATFILT Wed Nov 04 2026 22:03:33  Page 0005
+
+LINE    PG/LN  A...B............................................................
+
+000147                WHEN NOT WS-MES-VALIDO
+000148                      SET WS-REGISTRO-INVALIDO TO TRUE
+000149                      SET RJ-DATA-INVALIDA TO TRUE
+000150                      MOVE 'DATA INVALIDA'
+000151                                              TO RJ-DESC-MOTIVO
+000152                 WHEN NOT WS-DIA-VALIDO
+000153                      SET WS-REGISTRO-INVALIDO TO TRUE
+000154                      SET RJ-DATA-INVALIDA TO TRUE
+000155                      MOVE 'DATA INVALIDA'
+000156                                              TO RJ-DESC-MOTIVO
+000157                 WHEN TR-NEGADA
+000158                      SET WS-REGISTRO-INVALIDO TO TRUE
+000159                      SET RJ-TRANSACAO-NEGADA TO TRUE
+000160                      MOVE 'TRANSACAO NEGADA'
+000161                                              TO RJ-DESC-MOTIVO
+000162              END-EVALUATE.
+000163         2100-FIM-VALIDAR-TRANSACAO.
+000164             EXIT.
+000165         2200-GRAVAR-APROVADA.
+000166             MOVE SPACES TO REG-TRANS-INTERNA
+000167             INITIALIZE REG-TRANS-INTERNA
+000168             MOVE TR-NUM-CARTAO      TO TI-NUM-CARTAO
+000169             MOVE TR-DATA-TRANSACAO  TO TI-DATA-TRANSACAO
+000170             MOVE TR-HORA-TRANSACAO  TO TI-HORA-TRANSACAO
+000171             MOVE TR-VALOR           TO TI-VALOR
+000172             MOVE TR-MCC             TO TI-MCC
+000173             MOVE TR-PAIS            TO TI-PAIS
+000174             MOVE TR-COD-AUTORIZACAO TO TI-COD-AUTORIZACAO
+000175             MOVE TR-ESTABELECIMENTO TO TI-ESTABELECIMENTO
+000176
+000177             IF NOT TR-NACIONAL
+000178                AND TR-VALOR > WS-LIMITE-SUSPEITA
+000179
+000180                SET TI-SUSPEITA TO TRUE
+000181                ADD 1 TO WS-QTD-SUSPEITAS
+000182             ELSE
+000183                SET TI-NORMAL TO TRUE
+000184             END-IF
+000185
+000186             WRITE REG-TRANS-INTERNA
+000187
+000188             IF NOT WS-FS-APR-OK
+000189                DISPLAY 'FATFILTR - ERRO WRITE APROVOUT'
+000190                DISPLAY 'FS: ' WS-FS-APROVADA
+000191                PERFORM 9900-ENCERRAR-COM-ERRO
+000192             END-IF
+000193
+000194             ADD 1 TO WS-QTD-APROVADAS
+000195             .
+000196
+000197         2200-FIM-GRAVAR-APROVADA.
+000198              EXIT.
+GnuCOBOL 3.3-dev.0      sistema\work\FATFILT Wed Nov 04 2026 22:03:33  Page 0006
+
+LINE    PG/LN  A...B............................................................
+
+000199
+000200         2300-GRAVAR-REJEITADA.
+000201             MOVE REG-TRANSACAO
+000202                TO RJ-REGISTRO-ORIGINAL
+000203
+000204             WRITE REG-REJEITADA
+000205
+000206             IF NOT WS-FS-REJ-OK
+000207                DISPLAY 'FATFILTR - ERRO WRITE REJEIOUT'
+000208                DISPLAY 'FS: ' WS-FS-REJEITADA
+000209                PERFORM 9900-ENCERRAR-COM-ERRO
+000210             END-IF
+000211
+000212             ADD 1 TO WS-QTD-REJEITADAS
+000213             .
+000214         2300-FIM-GRAVAR-REJEITADA.
+000215             EXIT.
+000216         3000-FINALIZAR.
+000217             CLOSE TRANS-ENTRADA
+000218                   TRANS-APROVADA
+000219                   TRANS-REJEITADA
+000220
+000221             DISPLAY 'QTD LIDOS      : ' WS-QTD-LIDOS
+000222             DISPLAY 'QTD APROVADAS  : ' WS-QTD-APROVADAS
+000223             DISPLAY 'QTD SUSPEITAS  : ' WS-QTD-SUSPEITAS
+000224             DISPLAY 'QTD REJEITADAS : ' WS-QTD-REJEITADAS
+000225
+000226             IF WS-QTD-LIDOS NOT =
+000227                WS-QTD-APROVADAS + WS-QTD-REJEITADAS
+000228
+000229                MOVE 16 TO RETURN-CODE
+000230             ELSE
+000231                IF WS-QTD-REJEITADAS > ZERO
+000232                   MOVE 4 TO RETURN-CODE
+000233                ELSE
+000234                   MOVE 0 TO RETURN-CODE
+000235                END-IF
+000236             END-IF
+000237             .
+000238         3000-FIM-FINALIZAR.
+000239             EXIT.
+000240         8000-LER-TRANSACAO.
+000241
+000242             READ TRANS-ENTRADA
+000243                  AT END
+000244                     CONTINUE
+000245                  NOT AT END
+000246                     ADD 1 TO WS-QTD-LIDOS
+000247             END-READ
+000248
+000249             IF NOT WS-FS-ENT-OK AND NOT WS-FS-ENT-FIM
+000250                DISPLAY 'FATFILTR - ERRO DE READ TRANS-ENTRADA (TRANSIN)'
+GnuCOBOL 3.3-dev.0      sistema\work\FATFILT Wed Nov 04 2026 22:03:33  Page 0007
+
+LINE    PG/LN  A...B............................................................
+
+000251                        'FS: ' WS-FS-ENTRADA
+000252                PERFORM 9900-ENCERRAR-COM-ERRO
+000253             END-IF
+000254             .
+000255         8000-FIM-LER-TRANSACAO.
+000256             EXIT.
+000257         9900-ENCERRAR-COM-ERRO.
+000258        *    PRONTO: ENCERRA COM RC 16 PARA IMPEDIR OS STEPS SEGUINTES.
+000259             MOVE 16 TO RETURN-CODE
+000260             STOP RUN
+000261             .
+
+
+GnuCOBOL 3.3-dev.0      sistema\work\FATFILT Wed Nov 04 2026 22:03:33  Page 0008
+
+Error/Warning summary:
+
+ALUNO.FATURA.COBOL(FATFILTR):71: warning: value size exceeds data size
+
+1 warning in compilation group
+0 errors in compilation group

@@ -1,0 +1,123 @@
+        1 //FATJCL04 JOB ,'FATURA NOTURNA',NOTIFY=&SYSUID,
+          //             CLASS=A,MSGCLASS=X
+          //*--------------------------------------------------------------------
+          //* AULA 4 - CHECKPOINT 2: JOB SO DE UTILITARIOS
+          //*   STEP005 APAGA O BACKUP DO DIA ANTERIOR (SE EXISTIR)
+          //*   STEP010 COPIA AS TRANSACOES PARA BACKUP (IEBGENER)
+          //*   STEP020 ORDENA POR CARTAO, DATA E HORA E GRAVA NOVA GERACAO
+          //*           DO GDG. SO RODA SE O BACKUP TERMINOU COM RC 0.
+          //*--------------------------------------------------------------------
+        2 //STEP005  EXEC PGM=IEFBR14
+        3 //BKPANT   DD DSN=&SYSUID..FATURA.TRANS.BKP,DISP=(MOD,DELETE),
+          //            SPACE=(TRK,(1,1)),RECFM=FB,LRECL=80
+        4 //APRVANT  DD DSN=&SYSUID..FATURA.TRANS.APROV,DISP=(MOD,DELETE),
+          //            SPACE=(TRK,(1,1)),RECFM=FB,LRECL=80
+        5 //REJEIANT DD DSN=&SYSUID..FATURA.TRANS.REJEI,DISP=(MOD,DELETE),
+          //            SPACE=(TRK,(1,1)),RECFM=FB,LRECL=120
+        6 //
+        7 //STEP010  EXEC PGM=IEBGENER
+        8 //SYSPRINT DD SYSOUT=*
+        9 //SYSIN    DD DUMMY
+       10 //SYSUT1   DD DSN=&SYSUID..FATURA.TRANS.DIA,DISP=SHR
+       11 //SYSUT2   DD DSN=&SYSUID..FATURA.TRANS.BKP,DISP=(NEW,CATLG,DELETE),
+          //            SPACE=(TRK,(5,5),RLSE),RECFM=FB,LRECL=80,BLKSIZE=0
+       12 ////FATJCL04 JOB ,'FATURA NOTURNA',NOTIFY=&SYSUID,
+          //             CLASS=A,MSGCLASS=X
+          //*--------------------------------------------------------------------
+          //* AULA 4 - CHECKPOINT 2: JOB SO DE UTILITARIOS
+          //*   STEP005 APAGA O BACKUP DO DIA ANTERIOR (SE EXISTIR)
+          //*   STEP010 COPIA AS TRANSACOES PARA BACKUP (IEBGENER)
+          //*   STEP020 ORDENA POR CARTAO, DATA E HORA E GRAVA NOVA GERACAO
+          //*           DO GDG. SO RODA SE O BACKUP TERMINOU COM RC 0.
+          //*--------------------------------------------------------------------
+       13 //STEP005  EXEC PGM=IEFBR14
+       14 //BKPANT   DD DSN=&SYSUID..FATURA.TRANS.BKP,DISP=(MOD,DELETE),
+          //            SPACE=(TRK,(1,1)),RECFM=FB,LRECL=80
+       15 //APRVANT  DD DSN=&SYSUID..FATURA.TRANS.APROV,DISP=(MOD,DELETE),
+          //            SPACE=(TRK,(1,1)),RECFM=FB,LRECL=80
+       16 //REJEIANT DD DSN=&SYSUID..FATURA.TRANS.REJEI,DISP=(MOD,DELETE),
+          //            SPACE=(TRK,(1,1)),RECFM=FB,LRECL=120
+       17 //
+       18 //STEP010  EXEC PGM=IEBGENER
+       19 //SYSPRINT DD SYSOUT=*
+       20 //SYSIN    DD DUMMY
+       21 //SYSUT1   DD DSN=&SYSUID..FATURA.TRANS.DIA,DISP=SHR
+       22 //SYSUT2   DD DSN=&SYSUID..FATURA.TRANS.BKP,DISP=(NEW,CATLG,DELETE),
+          //            SPACE=(TRK,(5,5),RLSE),RECFM=FB,LRECL=80,BLKSIZE=0
+       23 //
+       24 //IFSORT   IF (STEP010.RC = 0) THEN
+       25 //
+       26 //STEP020  EXEC PGM=SORT
+       27 //SYSOUT   DD SYSOUT=*
+       28 //SORTIN   DD DSN=&SYSUID..FATURA.TRANS.DIA,DISP=SHR
+       29 //SORTOUT  DD DSN=&SYSUID..FATURA.TRANS.ORDEN(+1),
+          //            DISP=(NEW,CATLG,DELETE),
+          //            SPACE=(TRK,(5,5),RLSE),RECFM=FB,LRECL=80,BLKSIZE=0
+       30 //SYSIN    DD *
+          /*
+       31 //STEP030  EXEC PGM=FATFILTR
+       32 //STEPLIB  DD DSN=&SYSUID..FATURA.LOAD,DISP=SHR
+       33 //TRANSIN  DD DSN=&SYSUID..FATURA.TRANS.ORDEN(+1),DISP=SHR
+       34 //APROVOUT DD DSN=&SYSUID..FATURA.TRANS.APROV,
+          //            DISP=(NEW,CATLG,DELETE),
+          //            SPACE=(TRK,(2,2),RLSE),
+          //            RECFM=FB,LRECL=80,BLKSIZE=0
+       35 //REJEIOUT DD DSN=&SYSUID..FATURA.TRANS.REJEI,
+          //            DISP=(NEW,CATLG,DELETE),
+          //            SPACE=(TRK,(1,1),RLSE),
+          //            RECFM=FB,LRECL=120,BLKSIZE=0
+       36 //SYSOUT   DD SYSOUT=*
+       37 //CEEDUMP  DD SYSOUT=*
+       38 //STEP040  EXEC PGM=FATRELAT
+       39 //STEPLIB  DD DSN=&SYSUID..FATURA.LOAD,DISP=SHR
+       40 //APROVIN  DD DSN=&SYSUID..FATURA.TRANS.APROV,DISP=SHR
+       41 //MCCTAB   DD DSN=&SYSUID..FATURA.MCC.TABELA,DISP=SHR
+       42 //RELATOUT DD DSN=&SYSUID..FATURA.RELAT(+1),
+          //            DISP=(NEW,CATLG,DELETE),
+          //            SPACE=(TRK,(2,2),RLSE),
+          //            RECFM=FBA,LRECL=133,BLKSIZE=0
+       43 //SYSOUT   DD SYSOUT=*
+       44 //CEEDUMP  DD SYSOUT=*
+       45 //
+       46 //STEP020  EXEC PGM=SORT
+       47 //SYSOUT   DD SYSOUT=*
+       48 //SORTIN   DD DSN=&SYSUID..FATURA.TRANS.DIA,DISP=SHR
+       49 //SORTOUT  DD DSN=&SYSUID..FATURA.TRANS.ORDEN(+1),
+          //            DISP=(NEW,CATLG,DELETE),
+          //            SPACE=(TRK,(5,5),RLSE),RECFM=FB,LRECL=80,BLKSIZE=0
+       50 //SYSIN    DD *
+          /*
+       51 //STEP030  EXEC PGM=FATFILTR
+       52 //STEPLIB  DD DSN=&SYSUID..FATURA.LOAD,DISP=SHR
+       53 //TRANSIN  DD DSN=&SYSUID..FATURA.TRANS.ORDEN(+1),DISP=SHR
+       54 //APROVOUT DD DSN=&SYSUID..FATURA.TRANS.APROV,
+          //            DISP=(NEW,CATLG,DELETE),
+          //            SPACE=(TRK,(2,2),RLSE),
+          //            RECFM=FB,LRECL=80,BLKSIZE=0
+       55 //REJEIOUT DD DSN=&SYSUID..FATURA.TRANS.REJEI,
+          //            DISP=(NEW,CATLG,DELETE),
+          //            SPACE=(TRK,(1,1),RLSE),
+          //            RECFM=FB,LRECL=120,BLKSIZE=0
+       56 //SYSOUT   DD SYSOUT=*
+       57 //CEEDUMP  DD SYSOUT=*
+       58 //STEP040  EXEC PGM=FATRELAT
+       59 //STEPLIB  DD DSN=&SYSUID..FATURA.LOAD,DISP=SHR
+       60 //APROVIN  DD DSN=&SYSUID..FATURA.TRANS.APROV,DISP=SHR
+       61 //MCCTAB   DD DSN=&SYSUID..FATURA.MCC.TABELA,DISP=SHR
+       62 //RELATOUT DD DSN=&SYSUID..FAT//STEP040  EXEC PGM=FATRELAT
+       63 //STEPLIB  DD DSN=&SYSUID..FATURA.LOAD,DISP=SHR
+       64 //APROVIN  DD DSN=&SYSUID..FATURA.TRANS.APROV,DISP=SHR
+       65 //MCCTAB   DD DSN=&SYSUID..FATURA.MCC.TABELA,DISP=SHR
+       66 //RELATOUT DD DSN=&SYSUID..FATURA.RELAT(+1),
+          //            DISP=(NEW,CATLG,DELETE),
+          //            SPACE=(TRK,(2,2),RLSE),
+          //            RECFM=FBA,LRECL=133,BLKSIZE=0
+       67 //SYSOUT   DD SYSOUT=*
+       68 //CEEDUMP  DD SYSOUT=*
+       69 //ENDIF    ENDIFURA.RELAT(+1),
+       70 //            DISP=(NEW,CATLG,DELETE),
+       71 //            SPACE=(TRK,(2,2),RLSE),
+       72 //            RECFM=FBA,LRECL=133,BLKSIZE=0
+       73 //SYSOUT   DD SYSOUT=*
+       74 //CEEDUMP  DD SYSOUT=*
+       75 //ENDIF    ENDIF

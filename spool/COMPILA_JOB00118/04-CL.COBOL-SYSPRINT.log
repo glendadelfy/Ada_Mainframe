@@ -1,0 +1,114 @@
+SIM031I COMPILACAO COM GNUCOBOL (-std=ibm), PROGRAMA LUHNVALD (SUBPROGRAMA)
+
+ALUNO.FATURA.COBOL(LUHNVALD):25: error: CPLUHN: No such file or directory
+   23 | 
+   24 |        LINKAGE SECTION.
+   25 >            COPY CPLUHN.
+   26 | 
+   27 |        PROCEDURE DIVISION USING LK-AREA-LUHN.
+ALUNO.FATURA.COBOL(LUHNVALD):27: error: 'LK-AREA-LUHN' is not defined
+   25 |            COPY CPLUHN.
+   26 | 
+   27 >        PROCEDURE DIVISION USING LK-AREA-LUHN.
+   28 |        0000-PRINCIPAL.
+   29 |            SET LK-CARTAO-INVALIDO TO TRUE
+ALUNO.FATURA.COBOL(LUHNVALD): in paragraph '0000-PRINCIPAL':
+ALUNO.FATURA.COBOL(LUHNVALD):29: error: 'LK-CARTAO-INVALIDO' is not defined
+   27 |        PROCEDURE DIVISION USING LK-AREA-LUHN.
+   28 |        0000-PRINCIPAL.
+   29 >            SET LK-CARTAO-INVALIDO TO TRUE
+   30 |            MOVE LK-NUM-CARTAO     TO WS-LUHN-CARTAO
+   31 |            IF WS-LUHN-CARTAO IS NOT NUMERIC
+ALUNO.FATURA.COBOL(LUHNVALD):30: error: 'LK-NUM-CARTAO' is not defined
+   28 |        0000-PRINCIPAL.
+   29 |            SET LK-CARTAO-INVALIDO TO TRUE
+   30 >            MOVE LK-NUM-CARTAO     TO WS-LUHN-CARTAO
+   31 |            IF WS-LUHN-CARTAO IS NOT NUMERIC
+   32 |               GOBACK
+ALUNO.FATURA.COBOL(LUHNVALD):51: error: 'LK-CARTAO-VALIDO' is not defined
+   49 |            END-PERFORM
+   50 |            IF FUNCTION MOD(WS-LUHN-SOMA, 10) = ZERO
+   51 >               SET LK-CARTAO-VALIDO TO TRUE
+   52 |            END-IF
+   53 |            GOBACK.
+
+GnuCOBOL 3.3-dev.0      sistema\work\LUHNVAL Wed Nov 04 2026 20:57:09  Page 0001
+
+LINE    PG/LN  A...B............................................................
+
+000001        *================================================================*
+000002        * PROGRAMA : LUHNVALD (SUBPROGRAMA)                              *
+000003        * AULA     : 9 - MODULARIZACAO                                   *
+000004        * OBJETIVO : VALIDAR O DIGITO VERIFICADOR DO NUMERO DO CARTAO    *
+000005        *            PELO ALGORITMO DE LUHN. EXTRAIDO DO FATCLASS.       *
+000006        * CHAMADA  : CALL 'LUHNVALD' USING LK-AREA-LUHN (COPY CPLUHN)    *
+000007        * RETORNO  : LK-RESULTADO = 'S' (VALIDO) OU 'N' (INVALIDO)       *
+000008        *================================================================*
+000009         IDENTIFICATION DIVISION.
+000010         PROGRAM-ID. LUHNVALD.
+000011
+000012         DATA DIVISION.
+000013         WORKING-STORAGE SECTION.
+000014         01  WS-LUHN-CARTAO             PIC X(16).
+000015         01  WS-LUHN-DIGITOS REDEFINES WS-LUHN-CARTAO.
+000016             05  WS-LUHN-DIGITO         PIC 9(01) OCCURS 16 TIMES.
+000017         01  WS-LUHN-POS                PIC 9(02).
+000018         01  WS-LUHN-PARCELA            PIC 9(02).
+000019         01  WS-LUHN-SOMA               PIC 9(03).
+000020         01  WS-LUHN-DOBRAR             PIC X(01).
+000021             88  WS-LUHN-DOBRA                    VALUE 'S'.
+000022             88  WS-LUHN-NAO-DOBRA                VALUE 'N'.
+000023
+000024         LINKAGE SECTION.
+000025             COPY CPLUHN.
+error: CPLUHN: No such file or directory
+000026
+000027         PROCEDURE DIVISION USING LK-AREA-LUHN.
+error: 'LK-AREA-LUHN' is not defined
+000028         0000-PRINCIPAL.
+000029             SET LK-CARTAO-INVALIDO TO TRUE
+error: 'LK-CARTAO-INVALIDO' is not defined
+000030             MOVE LK-NUM-CARTAO     TO WS-LUHN-CARTAO
+error: 'LK-NUM-CARTAO' is not defined
+000031             IF WS-LUHN-CARTAO IS NOT NUMERIC
+000032                GOBACK
+000033             END-IF
+000034             MOVE ZERO              TO WS-LUHN-SOMA
+000035             SET WS-LUHN-NAO-DOBRA  TO TRUE
+000036             PERFORM VARYING WS-LUHN-POS FROM 16 BY -1
+000037                     UNTIL WS-LUHN-POS < 1
+000038                MOVE WS-LUHN-DIGITO(WS-LUHN-POS) TO WS-LUHN-PARCELA
+000039                IF WS-LUHN-DOBRA
+000040                   COMPUTE WS-LUHN-PARCELA = WS-LUHN-PARCELA * 2
+000041                   IF WS-LUHN-PARCELA > 9
+000042                      SUBTRACT 9 FROM WS-LUHN-PARCELA
+000043                   END-IF
+000044                   SET WS-LUHN-NAO-DOBRA TO TRUE
+000045                ELSE
+000046                   SET WS-LUHN-DOBRA     TO TRUE
+000047                END-IF
+000048                ADD WS-LUHN-PARCELA TO WS-LUHN-SOMA
+GnuCOBOL 3.3-dev.0      sistema\work\LUHNVAL Wed Nov 04 2026 20:57:09  Page 0002
+
+LINE    PG/LN  A...B............................................................
+
+000049             END-PERFORM
+000050             IF FUNCTION MOD(WS-LUHN-SOMA, 10) = ZERO
+000051                SET LK-CARTAO-VALIDO TO TRUE
+error: 'LK-CARTAO-VALIDO' is not defined
+000052             END-IF
+000053             GOBACK.
+
+
+GnuCOBOL 3.3-dev.0      sistema\work\LUHNVAL Wed Nov 04 2026 20:57:09  Page 0003
+
+Error/Warning summary:
+
+ALUNO.FATURA.COBOL(LUHNVALD):25: error: CPLUHN: No such file or directory
+ALUNO.FATURA.COBOL(LUHNVALD):27: error: 'LK-AREA-LUHN' is not defined
+ALUNO.FATURA.COBOL(LUHNVALD):29: error: 'LK-CARTAO-INVALIDO' is not defined
+ALUNO.FATURA.COBOL(LUHNVALD):30: error: 'LK-NUM-CARTAO' is not defined
+ALUNO.FATURA.COBOL(LUHNVALD):51: error: 'LK-CARTAO-VALIDO' is not defined
+
+0 warnings in compilation group
+5 errors in compilation group
