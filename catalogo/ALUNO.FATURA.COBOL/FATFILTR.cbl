@@ -134,6 +134,10 @@
            CALL WS-PGM-LUHN USING LK-AREA-LUHN
 
            EVALUATE TRUE
+              WHEN LK-CARTAO-INVALIDO
+                   SET WS-REGISTRO-INVALIDO TO TRUE
+                   MOVE 'CARTAO INVALIDO'
+                                            TO RJ-DESC-MOTIVO
               WHEN TR-VALOR IS NOT NUMERIC
                    SET WS-REGISTRO-INVALIDO   TO TRUE 
                    SET RJ-VALOR-INVALIDO      TO TRUE
