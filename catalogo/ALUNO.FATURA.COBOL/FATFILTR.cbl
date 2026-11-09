@@ -219,9 +219,29 @@
            EXIT.
        3000-FINALIZAR.
            CLOSE TRANS-ENTRADA
-                 TRANS-APROVADA
-                 TRANS-REJEITADA
 
+           IF NOT WS-FS-ENT-OK
+              DISPLAY 'FATFILTR - ERRO CLOSE TRANSIN'
+              DISPLAY 'FS: ' WS-FS-ENTRADA
+              MOVE 16 TO RETURN-CODE
+           END-IF
+
+           CLOSE TRANS-APROVADA
+
+           IF NOT WS-FS-APR-OK
+              DISPLAY 'FATFILTR - ERRO CLOSE APROVOUT'
+              DISPLAY 'FS: ' WS-FS-APROVADA
+              MOVE 16 TO RETURN-CODE
+           END-IF
+
+           CLOSE TRANS-REJEITADA
+
+           IF NOT WS-FS-REJ-OK
+              DISPLAY 'FATFILTR - ERRO CLOSE REJEIOUT'
+              DISPLAY 'FS: ' WS-FS-REJEITADA
+              MOVE 16 TO RETURN-CODE
+           END-IF
+ 
            DISPLAY 'QTD LIDOS      : ' WS-QTD-LIDOS
            DISPLAY 'QTD APROVADAS  : ' WS-QTD-APROVADAS
            DISPLAY 'QTD SUSPEITAS  : ' WS-QTD-SUSPEITAS

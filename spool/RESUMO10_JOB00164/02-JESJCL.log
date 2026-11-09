@@ -1,0 +1,11 @@
+        1 //RESUMO10 JOB (0000),'AULA10',
+          //             CLASS=A,
+          //             MSGCLASS=X,
+          //             MSGLEVEL=(1,1)
+          //*
+        2 //STEP010 EXEC IGYWCLG
+        3 //COBOL.SYSIN DD *
+          /*
+        4 //GO.FATURA DD DSN=FATRESUM,
+          //             DISP=SHR
+        5 //GO.SYSOUT DD SYSOUT=*

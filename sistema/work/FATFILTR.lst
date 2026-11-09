@@ -1,4 +1,4 @@
-GnuCOBOL 3.3-dev.0      sistema\work\FATFILT Sat Nov 07 2026 12:13:15  Page 0001
+GnuCOBOL 3.3-dev.0      sistema\work\FATFILT Sun Nov 08 2026 23:11:02  Page 0001
 
 LINE    PG/LN  A...B............................................................
 
@@ -54,7 +54,7 @@ LINE    PG/LN  A...B............................................................
 000014C            05  TR-MCC                 PIC 9(04).
 000015C            05  TR-PAIS                PIC X(03).
 000016C                88  TR-NACIONAL                  VALUE 'BRA'.
-GnuCOBOL 3.3-dev.0      sistema\work\FATFILT Sat Nov 07 2026 12:13:15  Page 0002
+GnuCOBOL 3.3-dev.0      sistema\work\FATFILT Sun Nov 08 2026 23:11:02  Page 0002
 
 LINE    PG/LN  A...B............................................................
 
@@ -110,7 +110,7 @@ LINE    PG/LN  A...B............................................................
 000049             88  WS-FS-APR-OK                     VALUE '00'.
 000050         01  WS-FS-REJEITADA            PIC X(02).
 000051             88  WS-FS-REJ-OK                     VALUE '00'.
-GnuCOBOL 3.3-dev.0      sistema\work\FATFILT Sat Nov 07 2026 12:13:15  Page 0003
+GnuCOBOL 3.3-dev.0      sistema\work\FATFILT Sun Nov 08 2026 23:11:02  Page 0003
 
 LINE    PG/LN  A...B............................................................
 
@@ -166,7 +166,7 @@ LINE    PG/LN  A...B............................................................
 000093
 000094             OPEN OUTPUT TRANS-APROVADA
 000095             IF NOT WS-FS-APR-OK
-GnuCOBOL 3.3-dev.0      sistema\work\FATFILT Sat Nov 07 2026 12:13:15  Page 0004
+GnuCOBOL 3.3-dev.0      sistema\work\FATFILT Sun Nov 08 2026 23:11:02  Page 0004
 
 LINE    PG/LN  A...B............................................................
 
@@ -222,7 +222,7 @@ LINE    PG/LN  A...B............................................................
 000145                                              TO RJ-DESC-MOTIVO
 000146                WHEN TR-VALOR = ZERO
 000147                     SET WS-REGISTRO-INVALIDO   TO TRUE
-GnuCOBOL 3.3-dev.0      sistema\work\FATFILT Sat Nov 07 2026 12:13:15  Page 0005
+GnuCOBOL 3.3-dev.0      sistema\work\FATFILT Sun Nov 08 2026 23:11:02  Page 0005
 
 LINE    PG/LN  A...B............................................................
 
@@ -278,7 +278,7 @@ LINE    PG/LN  A...B............................................................
 000197
 000198             ADD 1 TO WS-QTD-APROVADAS
 000199             .
-GnuCOBOL 3.3-dev.0      sistema\work\FATFILT Sat Nov 07 2026 12:13:15  Page 0006
+GnuCOBOL 3.3-dev.0      sistema\work\FATFILT Sun Nov 08 2026 23:11:02  Page 0006
 
 LINE    PG/LN  A...B............................................................
 
@@ -304,54 +304,74 @@ LINE    PG/LN  A...B............................................................
 000219             EXIT.
 000220         3000-FINALIZAR.
 000221             CLOSE TRANS-ENTRADA
-000222                   TRANS-APROVADA
-000223                   TRANS-REJEITADA
-000224
-000225             DISPLAY 'QTD LIDOS      : ' WS-QTD-LIDOS
-000226             DISPLAY 'QTD APROVADAS  : ' WS-QTD-APROVADAS
-000227             DISPLAY 'QTD SUSPEITAS  : ' WS-QTD-SUSPEITAS
-000228             DISPLAY 'QTD REJEITADAS : ' WS-QTD-REJEITADAS
-000229
-000230             IF WS-QTD-LIDOS NOT =
-000231                WS-QTD-APROVADAS + WS-QTD-REJEITADAS
-000232
-000233                MOVE 16 TO RETURN-CODE
-000234             ELSE
-000235                IF WS-QTD-REJEITADAS > ZERO
-000236                   MOVE 4 TO RETURN-CODE
-000237                ELSE
-000238                   MOVE 0 TO RETURN-CODE
-000239                END-IF
-000240             END-IF
-000241             .
-000242         3000-FIM-FINALIZAR.
-000243             EXIT.
-000244         8000-LER-TRANSACAO.
-000245
-000246             READ TRANS-ENTRADA
-000247                  AT END
-000248                     CONTINUE
-000249                  NOT AT END
-000250                     ADD 1 TO WS-QTD-LIDOS
-000251             END-READ
-GnuCOBOL 3.3-dev.0      sistema\work\FATFILT Sat Nov 07 2026 12:13:15  Page 0007
+000222
+000223             IF NOT WS-FS-ENT-OK
+000224                DISPLAY 'FATFILTR - ERRO CLOSE TRANSIN'
+000225                DISPLAY 'FS: ' WS-FS-ENTRADA
+000226                MOVE 16 TO RETURN-CODE
+000227             END-IF
+000228
+000229             CLOSE TRANS-APROVADA
+000230
+000231             IF NOT WS-FS-APR-OK
+000232                DISPLAY 'FATFILTR - ERRO CLOSE APROVOUT'
+000233                DISPLAY 'FS: ' WS-FS-APROVADA
+000234                MOVE 16 TO RETURN-CODE
+000235             END-IF
+000236
+000237             CLOSE TRANS-REJEITADA
+000238
+000239             IF NOT WS-FS-REJ-OK
+000240                DISPLAY 'FATFILTR - ERRO CLOSE REJEIOUT'
+000241                DISPLAY 'FS: ' WS-FS-REJEITADA
+000242                MOVE 16 TO RETURN-CODE
+000243             END-IF
+000244
+000245             DISPLAY 'QTD LIDOS      : ' WS-QTD-LIDOS
+000246             DISPLAY 'QTD APROVADAS  : ' WS-QTD-APROVADAS
+000247             DISPLAY 'QTD SUSPEITAS  : ' WS-QTD-SUSPEITAS
+000248             DISPLAY 'QTD REJEITADAS : ' WS-QTD-REJEITADAS
+000249
+000250             IF WS-QTD-LIDOS NOT =
+000251                WS-QTD-APROVADAS + WS-QTD-REJEITADAS
+GnuCOBOL 3.3-dev.0      sistema\work\FATFILT Sun Nov 08 2026 23:11:02  Page 0007
 
 LINE    PG/LN  A...B............................................................
 
 000252
-000253             IF NOT WS-FS-ENT-OK AND NOT WS-FS-ENT-FIM
-000254                DISPLAY 'FATFILTR - ERRO DE READ TRANS-ENTRADA (TRANSIN)'
-000255                        'FS: ' WS-FS-ENTRADA
-000256                PERFORM 9900-ENCERRAR-COM-ERRO
-000257             END-IF
-000258             .
-000259         8000-FIM-LER-TRANSACAO.
-000260             EXIT.
-000261         9900-ENCERRAR-COM-ERRO.
-000262        *    PRONTO: ENCERRA COM RC 16 PARA IMPEDIR OS STEPS SEGUINTES.
-000263             MOVE 16 TO RETURN-CODE
-000264             STOP RUN
-000265             .
+000253                MOVE 16 TO RETURN-CODE
+000254             ELSE
+000255                IF WS-QTD-REJEITADAS > ZERO
+000256                   MOVE 4 TO RETURN-CODE
+000257                ELSE
+000258                   MOVE 0 TO RETURN-CODE
+000259                END-IF
+000260             END-IF
+000261             .
+000262         3000-FIM-FINALIZAR.
+000263             EXIT.
+000264         8000-LER-TRANSACAO.
+000265
+000266             READ TRANS-ENTRADA
+000267                  AT END
+000268                     CONTINUE
+000269                  NOT AT END
+000270                     ADD 1 TO WS-QTD-LIDOS
+000271             END-READ
+000272
+000273             IF NOT WS-FS-ENT-OK AND NOT WS-FS-ENT-FIM
+000274                DISPLAY 'FATFILTR - ERRO DE READ TRANS-ENTRADA (TRANSIN)'
+000275                        'FS: ' WS-FS-ENTRADA
+000276                PERFORM 9900-ENCERRAR-COM-ERRO
+000277             END-IF
+000278             .
+000279         8000-FIM-LER-TRANSACAO.
+000280             EXIT.
+000281         9900-ENCERRAR-COM-ERRO.
+000282        *    PRONTO: ENCERRA COM RC 16 PARA IMPEDIR OS STEPS SEGUINTES.
+000283             MOVE 16 TO RETURN-CODE
+000284             STOP RUN
+000285             .
 
 
 0 warnings in compilation group

@@ -1,0 +1,180 @@
+        1        IDENTIFICATION DIVISION.
+        2        PROGRAM-ID.  FATRESUM.
+        3 
+        4        ENVIRONMENT DIVISION.
+        5        INPUT-OUTPUT SECTION.
+        6        FILE-CONTROL.
+        7            SELECT FATURA.DIVERG ASSIGN TO FATURA
+        8                   FILE STATUS IS WS-FS-DIVERG.
+        9        DATA DIVISION.
+       10        FILE SECTION.
+       11        FD  ARQ-DIVERG
+       12            RECORDING MODE IS F.
+       13            COPY CPDIVER.
+       14        WORKING-STORAGE SECTION.
+       15        01  WS-FS-DIVERG          PIC X(02).
+       16            88 WS-FS-DIV-OK       VALUE '00'.
+       17            88 WS-FS-DIV-FIM      VALUE '10'.
+       18        01  WS-CONTADORES.
+       19            05 WS-QTD-LIDOS        PIC 9(07) VALUE ZERO.
+       20            05 WS-QTD-PS           PIC 9(07) VALUE ZERO.
+       21            05 WS-QTD-FS           PIC 9(07) VALUE ZERO.
+       22            05 WS-QTD-PM           PIC 9(07) VALUE ZERO.
+       23 
+       24        01  WS-TOTAIS.
+       25            05 WS-VLR-FAT-PS       PIC 9(11)V99 VALUE ZERO.
+       26            05 WS-VLR-FAT-FS       PIC 9(11)V99 VALUE ZERO.
+       27            05 WS-VLR-FAT-PM       PIC 9(11)V99 VALUE ZERO.
+       28 
+       29            05 WS-VLR-PAG-PS       PIC 9(11)V99 VALUE ZERO.
+       30            05 WS-VLR-PAG-FS       PIC 9(11)V99 VALUE ZERO.
+       31            05 WS-VLR-PAG-PM       PIC 9(11)V99 VALUE ZERO.
+       32 
+       33        01  WS-TOT-FATURA          PIC 9(13)V99 VALUE ZERO.
+       34        01  WS-TOT-PAGO            PIC 9(13)V99 VALUE ZERO.
+       35 
+       36        
+       37        PROCEDURE DIVISION.
+       38        0000-PRINCIPAL.
+       39            PERFORM 1000-INICIALIZAR
+       40               THRU 1000-FIM-INICIALIZAR
+       41 
+       42            PERFORM 2000-PROCESSAR
+       43               THRU 2000-FIM-PROCESSAR
+       44               UNTIL WS-FS-DIV-FIM
+       45 
+       46            PERFORM 3000-FINALIZAR
+       47               THRU 3000-FIM-FINALIZAR
+       48 
+       49            GOBACK.
+       50        1000-INICIALIZAR.
+       51 
+       52            OPEN INPUT ARQ-DIVERG
+       53 
+       54            IF NOT WS-FS-DIV-OK
+       55               DISPLAY 'FATRESUM - ERRO OPEN FATURA.DIVERG'
+       56               DISPLAY 'FS: ' WS-FS-DIVERG
+       57               PERFORM 9900-ENCERRAR-COM-ERRO
+       58            END-IF
+       59 
+       60            PERFORM 8000-LER-DIVERGENCIA
+       61               THRU 8000-FIM-LER-DIVERGENCIA
+       62            .
+       63        1000-FIM-INICIALIZAR.
+       64            EXIT.
+       65        2000-PROCESSAR.
+       66 
+       67            EVALUATE TRUE
+       68 
+       69            WHEN DV-PAGTO-SEM-FATURA
+       70             ADD 1 TO WS-QTD-PS
+       71             ADD DV-VALOR-FATURA TO WS-VLR-FAT-PS
+       72             ADD DV-VALOR-PAGO   TO WS-VLR-PAG-PS
+       73 
+       74        WHEN DV-FATURA-SEM-PAGTO
+       75             ADD 1 TO WS-QTD-FS
+       76             ADD DV-VALOR-FATURA TO WS-VLR-FAT-FS
+       77             ADD DV-VALOR-PAGO   TO WS-VLR-PAG-FS
+       78 
+       79        WHEN DV-PAGTO-A-MENOR
+       80             ADD 1 TO WS-QTD-PM
+       81             ADD DV-VALOR-FATURA TO WS-VLR-FAT-PM
+       82             ADD DV-VALOR-PAGO   TO WS-VLR-PAG-PM
+       83 
+       84        WHEN OTHER
+       85             DISPLAY 'FATRESUM - TIPO INVALIDO: ' DV-TIPO
+       86             PERFORM 9900-ENCERRAR-COM-ERRO
+       87 
+       88        END-EVALUATE
+       89 
+       90        PERFORM 8000-LER-DIVERGENCIA
+       91            THRU 8000-FIM-LER-DIVERGENCIA
+       92        .
+       93 
+       94        2000-FIM-PROCESSAR.
+       95        EXIT.
+       96 
+       97        3000-FINALIZAR.
+       98            CLOSE ARQ-DIVERG
+       99 
+      100            IF NOT WS-FS-DIV-OK
+      101               DISPLAY 'FATRESUM - ERRO CLOSE FATURA.DIVERG'
+      102               DISPLAY 'FS: ' WS-FS-DIVERG
+      103               MOVE 16 TO RETURN-CODE
+      104            END-IF
+      105 
+      106            COMPUTE WS-TOT-FATURA =
+      107                    WS-VLR-FAT-PS
+      108                  + WS-VLR-FAT-FS
+      109                  + WS-VLR-FAT-PM
+      110 
+      111            COMPUTE WS-TOT-PAGO =
+      112                    WS-VLR-PAG-PS
+      113                  + WS-VLR-PAG-FS
+      114                  + WS-VLR-PAG-PM
+      115 
+      116            DISPLAY '*** RESUMO DE DIVERGENCIAS ***'
+      117 
+      118            DISPLAY 'PS - PAGTO SEM FATURA'
+      119            DISPLAY 'QTD       : ' WS-QTD-PS
+      120            DISPLAY 'VAL FAT   : ' WS-VLR-FAT-PS
+      121            DISPLAY 'VAL PAGO  : ' WS-VLR-PAG-PS
+      122 
+      123            DISPLAY 'FS - FATURA SEM PAGTO'
+      124            DISPLAY 'QTD       : ' WS-QTD-FS
+      125            DISPLAY 'VAL FAT   : ' WS-VLR-FAT-FS
+      126            DISPLAY 'VAL PAGO  : ' WS-VLR-PAG-FS
+      127 
+      128            DISPLAY 'PM - PAGTO A MENOR'
+      129            DISPLAY 'QTD       : ' WS-QTD-PM
+      130            DISPLAY 'VAL FAT   : ' WS-VLR-FAT-PM
+      131            DISPLAY 'VAL PAGO  : ' WS-VLR-PAG-PM
+      132 
+      133            DISPLAY 'TOTAL LIDOS : ' WS-QTD-LIDOS
+      134            DISPLAY 'TOTAL FATURA: ' WS-TOT-FATURA
+      135            DISPLAY 'TOTAL PAGO  : ' WS-TOT-PAGO
+      136 
+      137            IF WS-QTD-LIDOS NOT =
+      138               WS-QTD-PS +
+      139               WS-QTD-FS +
+      140               WS-QTD-PM
+      141 
+      142               DISPLAY 'FATRESUM - ERRO DE FECHAMENTO'
+      143               MOVE 16 TO RETURN-CODE
+      144            ELSE
+      145               IF RETURN-CODE = ZERO
+      146                  MOVE 0 TO RETURN-CODE
+      147               END-IF
+      148            END-IF
+      149            .
+      150 
+      151        3000-FIM-FINALIZAR.
+      152            EXIT.
+      153        8000-LER-DIVERGENCIA.
+      154 
+      155            READ ARQ-DIVERG
+      156               AT END
+      157                  CONTINUE
+      158            END-READ
+      159 
+      160            IF NOT WS-FS-DIV-OK
+      161               AND NOT WS-FS-DIV-FIM
+      162 
+      163               DISPLAY 'FATRESUM - ERRO READ FATURA.DIVERG'
+      164               DISPLAY 'FS: ' WS-FS-DIVERG
+      165 
+      166               PERFORM 9900-ENCERRAR-COM-ERRO
+      167            END-IF
+      168 
+      169            IF WS-FS-DIV-OK
+      170               ADD 1 TO WS-QTD-LIDOS
+      171            END-IF
+      172            .
+      173 
+      174        8000-FIM-LER-DIVERGENCIA.
+      175            EXIT.
+      176        9900-ENCERRAR-COM-ERRO.
+      177 
+      178            MOVE 16 TO RETURN-CODE
+      179            STOP RUN
+      180            .

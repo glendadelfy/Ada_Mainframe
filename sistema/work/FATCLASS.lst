@@ -1,4 +1,4 @@
-GnuCOBOL 3.3-dev.0      sistema\work\FATCLAS Fri Oct 30 2026 20:03:23  Page 0001
+GnuCOBOL 3.3-dev.0      sistema\work\FATCLAS Sun Nov 08 2026 22:54:13  Page 0001
 
 LINE    PG/LN  A...B............................................................
 
@@ -54,7 +54,7 @@ LINE    PG/LN  A...B............................................................
 000050         01  WS-CLASSIFICACAO           PIC X(20).
 000051
 000052        *--- AREAS DO ALGORITMO DE LUHN ---------------------------------*
-GnuCOBOL 3.3-dev.0      sistema\work\FATCLAS Fri Oct 30 2026 20:03:23  Page 0002
+GnuCOBOL 3.3-dev.0      sistema\work\FATCLAS Sun Nov 08 2026 22:54:13  Page 0002
 
 LINE    PG/LN  A...B............................................................
 
@@ -94,10 +94,10 @@ LINE    PG/LN  A...B............................................................
 000086                MOVE 'NEGADA'
 000087                   TO WS-CLASSIFICACAO
 000088
-000089             WHEN WS-T-STATUS(WS-IND) = 'A'
-000090              AND WS-T-PAIS(WS-IND) NOT = 'BRA'
+000089             WHEN WS-T-APROVADA(WS-IND)
+000090              AND NOT WS-T-NACIONAL(WS-IND)
 000091              AND WS-T-VALOR(WS-IND) > WS-LIMITE-SUSPEITA
-000092                 MOVE 'SUSPEITA'
+000092                MOVE 'SUSPEITA'
 000093                   TO WS-CLASSIFICACAO
 000094
 000095             WHEN WS-T-STATUS(WS-IND) = 'A'
@@ -110,7 +110,7 @@ LINE    PG/LN  A...B............................................................
 000102
 000103             END-EVALUATE
 000104
-GnuCOBOL 3.3-dev.0      sistema\work\FATCLAS Fri Oct 30 2026 20:03:23  Page 0003
+GnuCOBOL 3.3-dev.0      sistema\work\FATCLAS Sun Nov 08 2026 22:54:13  Page 0003
 
 LINE    PG/LN  A...B............................................................
 

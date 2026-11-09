@@ -1,0 +1,272 @@
+        1       *================================================================*
+        2       * PROGRAMA : FATCONCI                                            *
+        3       * AULA     : 9 - BALANCE LINE                                    *
+        4       * OBJETIVO : CRUZAR FATURAS EM ABERTO COM PAGAMENTOS DO DIA,     *
+        5       *            AMBOS ORDENADOS POR CARTAO, BAIXANDO AS FATURAS     *
+        6       *            PAGAS E GRAVANDO AS DIVERGENCIAS:                   *
+        7       *            PS = PAGAMENTO SEM FATURA                           *
+        8       *            FS = FATURA SEM PAGAMENTO                           *
+        9       *            PM = PAGAMENTO A MENOR                              *
+       10       * ENTRADAS : DD FATIN   - CPFATUR, FB 80                         *
+       11       *            DD PAGIN   - CPPAGTO, FB 80                         *
+       12       * SAIDA    : DD DIVEROUT - CPDIVER, FB 80                        *
+       13       * PREMISSA : NO MAXIMO UM PAGAMENTO E UMA FATURA POR CARTAO.     *
+       14       * RC       : 0 = OK, 16 = ERRO DE ARQUIVO OU CONTAS NAO FECHAM   *
+       15       *================================================================*
+       16        IDENTIFICATION DIVISION.
+       17        PROGRAM-ID. FATCONCI.
+       18 
+       19        ENVIRONMENT DIVISION.
+       20        INPUT-OUTPUT SECTION.
+       21        FILE-CONTROL.
+       22            SELECT FATURAS     ASSIGN TO FATIN
+       23                   FILE STATUS IS WS-FS-FATURA.
+       24            SELECT PAGAMENTOS  ASSIGN TO PAGIN
+       25                   FILE STATUS IS WS-FS-PAGTO.
+       26            SELECT DIVERGENCIAS ASSIGN TO DIVEROUT
+       27                   FILE STATUS IS WS-FS-DIVER.
+       28 
+       29        DATA DIVISION.
+       30        FILE SECTION.
+       31        FD  FATURAS
+       32            RECORDING MODE IS F.
+       33            COPY CPFATUR.
+       34        FD  PAGAMENTOS
+       35            RECORDING MODE IS F.
+       36            COPY CPPAGTO.
+       37        FD  DIVERGENCIAS
+       38            RECORDING MODE IS F.
+       39            COPY CPDIVER.
+       40 
+       41        WORKING-STORAGE SECTION.
+       42        01  WS-FS-FATURA               PIC X(02).
+       43            88  WS-FS-FAT-OK                     VALUE '00'.
+       44            88  WS-FS-FAT-FIM                    VALUE '10'.
+       45        01  WS-FS-PAGTO                PIC X(02).
+       46            88  WS-FS-PAG-OK                     VALUE '00'.
+       47            88  WS-FS-PAG-FIM                    VALUE '10'.
+       48        01  WS-FS-DIVER                PIC X(02).
+       49            88  WS-FS-DIV-OK                     VALUE '00'.
+       50 
+       51       *--- CHAVES DO BALANCE LINE: HIGH-VALUES QUANDO O ARQUIVO ACABA -*
+       52        01  WS-CHAVE-FATURA            PIC X(16).
+       53        01  WS-CHAVE-PAGTO             PIC X(16).
+       54 
+       55        01  WS-CONTADORES.
+       56            05  WS-QTD-FAT-LIDAS       PIC 9(07) VALUE ZERO.
+       57            05  WS-QTD-PAG-LIDOS       PIC 9(07) VALUE ZERO.
+       58            05  WS-QTD-BAIXADAS        PIC 9(07) VALUE ZERO.
+       59            05  WS-QTD-PS              PIC 9(07) VALUE ZERO.
+       60            05  WS-QTD-FS              PIC 9(07) VALUE ZERO.
+       61            05  WS-QTD-PM              PIC 9(07) VALUE ZERO.
+       62 
+       63        01  WS-CARTAO-ABERTO           PIC X(16).
+       64        01  WS-CARTAO-MASC             PIC X(16).
+       65 
+       66        PROCEDURE DIVISION.
+       67        0000-PRINCIPAL.
+       68            PERFORM 1000-INICIALIZAR THRU 1000-FIM-INICIALIZAR
+       69            PERFORM 2000-CONCILIAR   THRU 2000-FIM-CONCILIAR
+       70               UNTIL WS-CHAVE-FATURA = HIGH-VALUES
+       71                 AND WS-CHAVE-PAGTO  = HIGH-VALUES
+       72            PERFORM 3000-FINALIZAR   THRU 3000-FIM-FINALIZAR
+       73            STOP RUN.
+       74        0000-FIM-PRINCIPAL.
+       75            EXIT.
+       76 
+       77        1000-INICIALIZAR.
+       78 
+       79            OPEN INPUT FATURAS
+       80            IF NOT WS-FS-FAT-OK
+       81               DISPLAY 'FATCONCI - ERRO DE OPEN FATURAS (FATIN)'
+       82               DISPLAY 'FS: ' WS-FS-FATURA
+       83               PERFORM 9900-ENCERRAR-COM-ERRO
+       84                  THRU 9900-FIM-ENCERRAR-COM-ERRO
+       85            END-IF
+       86 
+       87            OPEN INPUT PAGAMENTOS
+       88            IF NOT WS-FS-PAG-OK
+       89               DISPLAY 'FATCONCI - ERRO DE OPEN PAGAMENTOS (PAGIN)'
+       90               DISPLAY 'FS: ' WS-FS-PAGTO
+       91               PERFORM 9900-ENCERRAR-COM-ERRO
+       92                  THRU 9900-FIM-ENCERRAR-COM-ERRO
+       93            END-IF
+       94 
+       95            OPEN OUTPUT DIVERGENCIAS
+       96            IF NOT WS-FS-DIV-OK
+       97               DISPLAY 'FATCONCI - ERRO DE OPEN DIVERGENCIAS (DIVEROUT)'
+       98               DISPLAY 'FS: ' WS-FS-DIVER
+       99               PERFORM 9900-ENCERRAR-COM-ERRO
+      100                  THRU 9900-FIM-ENCERRAR-COM-ERRO
+      101            END-IF
+      102 
+      103            PERFORM 8100-LER-FATURA    THRU 8100-FIM-LER-FATURA
+      104            PERFORM 8200-LER-PAGAMENTO THRU 8200-FIM-LER-PAGAMENTO.
+      105 
+      106        1000-FIM-INICIALIZAR.
+      107            EXIT.
+      108 
+      109        2000-CONCILIAR.
+      110 
+      111            EVALUATE TRUE
+      112               WHEN WS-CHAVE-FATURA = WS-CHAVE-PAGTO
+      113                  IF PG-VALOR < FT-VALOR
+      114                     MOVE SPACES TO REG-DIVERGENCIA
+      115                     SET DV-PAGTO-A-MENOR TO TRUE
+      116                     PERFORM 7000-GRAVAR-DIVERGENCIA
+      117                        THRU 7000-FIM-GRAVAR-DIVERGENCIA
+      118                     ADD 1 TO WS-QTD-PM
+      119                  ELSE
+      120                     ADD 1 TO WS-QTD-BAIXADAS
+      121                  END-IF
+      122                  PERFORM 8100-LER-FATURA    THRU 8100-FIM-LER-FATURA
+      123                  PERFORM 8200-LER-PAGAMENTO THRU 8200-FIM-LER-PAGAMENTO
+      124               WHEN WS-CHAVE-FATURA < WS-CHAVE-PAGTO
+      125                  MOVE SPACES TO REG-DIVERGENCIA
+      126                  SET DV-FATURA-SEM-PAGTO TO TRUE
+      127                  PERFORM 7000-GRAVAR-DIVERGENCIA
+      128                     THRU 7000-FIM-GRAVAR-DIVERGENCIA
+      129                  ADD 1 TO WS-QTD-FS
+      130                  PERFORM 8100-LER-FATURA    THRU 8100-FIM-LER-FATURA
+      131               WHEN OTHER
+      132                  MOVE SPACES TO REG-DIVERGENCIA
+      133                  SET DV-PAGTO-SEM-FATURA TO TRUE
+      134                  PERFORM 7000-GRAVAR-DIVERGENCIA
+      135                     THRU 7000-FIM-GRAVAR-DIVERGENCIA
+      136                  ADD 1 TO WS-QTD-PS
+      137                  PERFORM 8200-LER-PAGAMENTO THRU 8200-FIM-LER-PAGAMENTO
+      138            END-EVALUATE.
+      139 
+      140        2000-FIM-CONCILIAR.
+      141            EXIT.
+      142 
+      143        3000-FINALIZAR.
+      144 
+      145            CLOSE FATURAS
+      146            IF NOT WS-FS-FAT-OK
+      147               DISPLAY 'FATCONCI - ERRO DE CLOSE FATURAS (FATIN)'
+      148               DISPLAY 'FS: ' WS-FS-FATURA
+      149               PERFORM 9900-ENCERRAR-COM-ERRO
+      150                  THRU 9900-FIM-ENCERRAR-COM-ERRO
+      151            END-IF
+      152 
+      153            CLOSE PAGAMENTOS
+      154            IF NOT WS-FS-PAG-OK
+      155               DISPLAY 'FATCONCI - ERRO DE CLOSE PAGAMENTOS (PAGIN)'
+      156               DISPLAY 'FS: ' WS-FS-PAGTO
+      157               PERFORM 9900-ENCERRAR-COM-ERRO
+      158                  THRU 9900-FIM-ENCERRAR-COM-ERRO
+      159            END-IF
+      160 
+      161            CLOSE DIVERGENCIAS
+      162            IF NOT WS-FS-DIV-OK
+      163               DISPLAY 'FATCONCI - ERRO DE CLOSE DIVERGENCIAS (DIVEROUT)'
+      164               DISPLAY 'FS: ' WS-FS-DIVER
+      165               PERFORM 9900-ENCERRAR-COM-ERRO
+      166                  THRU 9900-FIM-ENCERRAR-COM-ERRO
+      167            END-IF
+      168 
+      169            DISPLAY 'FATCONCI - FATURAS LIDAS .........: '
+      170                    WS-QTD-FAT-LIDAS
+      171            DISPLAY 'FATCONCI - PAGAMENTOS LIDOS ......: '
+      172                    WS-QTD-PAG-LIDOS
+      173            DISPLAY 'FATCONCI - FATURAS BAIXADAS ......: '
+      174                    WS-QTD-BAIXADAS
+      175            DISPLAY 'FATCONCI - PAGAMENTO SEM FATURA ...: ' WS-QTD-PS
+      176            DISPLAY 'FATCONCI - FATURA SEM PAGAMENTO ...: ' WS-QTD-FS
+      177            DISPLAY 'FATCONCI - PAGAMENTO A MENOR ......: ' WS-QTD-PM
+      178 
+      179       *    CONFERENCIA PELOS DOIS LADOS:
+      180       *    FATURAS    = BAIXADAS + A MENOR + SEM PAGAMENTO
+      181       *    PAGAMENTOS = BAIXADAS + A MENOR + SEM FATURA
+      182            IF WS-QTD-FAT-LIDAS NOT =
+      183                  WS-QTD-BAIXADAS + WS-QTD-PM + WS-QTD-FS
+      184            OR WS-QTD-PAG-LIDOS NOT =
+      185                  WS-QTD-BAIXADAS + WS-QTD-PM + WS-QTD-PS
+      186               DISPLAY 'FATCONCI - CONTADORES NAO FECHAM'
+      187               MOVE 16 TO RETURN-CODE
+      188            END-IF.
+      189 
+      190        3000-FIM-FINALIZAR.
+      191            EXIT.
+      192 
+      193        7000-GRAVAR-DIVERGENCIA.
+      194       *    O REGISTRO FOI LIMPO (MOVE SPACES, INCLUSIVE O FILLER) ANTES
+      195       *    DO SET DO TIPO, NO PARAGRAFO QUE CHAMOU ESTE.
+      196 
+      197            IF DV-PAGTO-SEM-FATURA
+      198               MOVE PG-NUM-CARTAO TO WS-CARTAO-ABERTO
+      199               MOVE ZERO          TO DV-VALOR-FATURA
+      200               MOVE PG-VALOR      TO DV-VALOR-PAGO
+      201            ELSE
+      202               MOVE FT-NUM-CARTAO TO WS-CARTAO-ABERTO
+      203               MOVE FT-VALOR      TO DV-VALOR-FATURA
+      204               IF DV-PAGTO-A-MENOR
+      205                  MOVE PG-VALOR   TO DV-VALOR-PAGO
+      206               ELSE
+      207                  MOVE ZERO       TO DV-VALOR-PAGO
+      208               END-IF
+      209            END-IF
+      210            PERFORM 9800-MASCARAR-CARTAO
+      211            MOVE WS-CARTAO-MASC TO DV-NUM-CARTAO-MASC
+      212 
+      213            WRITE REG-DIVERGENCIA
+      214            IF NOT WS-FS-DIV-OK
+      215               DISPLAY 'FATCONCI - ERRO DE WRITE DIVERGENCIAS (DIVEROUT)'
+      216               DISPLAY 'FS: ' WS-FS-DIVER
+      217               PERFORM 9900-ENCERRAR-COM-ERRO
+      218                  THRU 9900-FIM-ENCERRAR-COM-ERRO
+      219            END-IF.
+      220 
+      221        7000-FIM-GRAVAR-DIVERGENCIA.
+      222            EXIT.
+      223 
+      224        8100-LER-FATURA.
+      225 
+      226            READ FATURAS
+      227                 AT END
+      228                    MOVE HIGH-VALUES   TO WS-CHAVE-FATURA
+      229                 NOT AT END
+      230                    ADD 1              TO WS-QTD-FAT-LIDAS
+      231                    MOVE FT-NUM-CARTAO TO WS-CHAVE-FATURA
+      232            END-READ
+      233 
+      234            IF NOT WS-FS-FAT-OK AND NOT WS-FS-FAT-FIM
+      235               DISPLAY 'FATCONCI - ERRO DE READ FATURAS (FATIN)'
+      236               DISPLAY 'FS: ' WS-FS-FATURA
+      237               PERFORM 9900-ENCERRAR-COM-ERRO
+      238                  THRU 9900-FIM-ENCERRAR-COM-ERRO
+      239            END-IF.
+      240 
+      241        8100-FIM-LER-FATURA.
+      242            EXIT.
+      243 
+      244        8200-LER-PAGAMENTO.
+      245 
+      246            READ PAGAMENTOS
+      247                 AT END
+      248                    MOVE HIGH-VALUES   TO WS-CHAVE-PAGTO
+      249                 NOT AT END
+      250                    ADD 1              TO WS-QTD-PAG-LIDOS
+      251                    MOVE PG-NUM-CARTAO TO WS-CHAVE-PAGTO
+      252            END-READ
+      253 
+      254            IF NOT WS-FS-PAG-OK AND NOT WS-FS-PAG-FIM
+      255               DISPLAY 'FATCONCI - ERRO DE READ PAGAMENTOS (PAGIN)'
+      256               DISPLAY 'FS: ' WS-FS-PAGTO
+      257               PERFORM 9900-ENCERRAR-COM-ERRO
+      258                  THRU 9900-FIM-ENCERRAR-COM-ERRO
+      259            END-IF.
+      260 
+      261        8200-FIM-LER-PAGAMENTO.
+      262            EXIT.
+      263 
+      264            COPY CPMASCAR.
+      265 
+      266        9900-ENCERRAR-COM-ERRO.
+      267       *    ENCERRA COM RC 16 PARA IMPEDIR OS STEPS SEGUINTES.
+      268            MOVE 16 TO RETURN-CODE
+      269            STOP RUN.
+      270        9900-FIM-ENCERRAR-COM-ERRO.
+      271            EXIT.
+      272 

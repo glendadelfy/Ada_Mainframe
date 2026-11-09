@@ -86,10 +86,10 @@
               MOVE 'NEGADA'
                  TO WS-CLASSIFICACAO
 
-           WHEN WS-T-STATUS(WS-IND) = 'A'
-            AND WS-T-PAIS(WS-IND) NOT = 'BRA'
+           WHEN WS-T-APROVADA(WS-IND)
+            AND NOT WS-T-NACIONAL(WS-IND)
             AND WS-T-VALOR(WS-IND) > WS-LIMITE-SUSPEITA
-               MOVE 'SUSPEITA'
+              MOVE 'SUSPEITA'
                  TO WS-CLASSIFICACAO
 
            WHEN WS-T-STATUS(WS-IND) = 'A'

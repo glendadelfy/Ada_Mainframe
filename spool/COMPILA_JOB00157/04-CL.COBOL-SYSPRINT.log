@@ -1,0 +1,265 @@
+SIM031I COMPILACAO COM GNUCOBOL (-std=ibm), PROGRAMA FATRESUM (PRINCIPAL)
+
+ALUNO.FATURA.COBOL(FATRESUM):175: warning: line not terminated by a newline [-Wmissing-newline]
+  173 |            MOVE 16 TO RETURN-CODE
+  174 |            STOP RUN
+  175 >            .<EOF>
+ALUNO.FATURA.COBOL(FATRESUM): in paragraph '1000-INICIALIZAR':
+ALUNO.FATURA.COBOL(FATRESUM):62: warning: optional period used [-Wdialect]
+   60 |            PERFORM 8000-LER-DIVERGENCIA
+   61 |               THRU 8000-FIM-LER-DIVERGENCIA
+   62 >        1000-FIM-INICIALIZAR.
+   63 |            EXIT.
+   64 |        2000-PROCESSAR.
+ALUNO.FATURA.COBOL(FATRESUM): in paragraph '2000-PROCESSAR':
+ALUNO.FATURA.COBOL(FATRESUM):87: warning: END-EVALUATE should not start in Area A [-Wothers]
+   85 |             MOVE 16 TO RETURN-CODE
+   86 | 
+   87 >        END-EVALUATE
+   88 | 
+   89 |        PERFORM 8000-LER-DIVERGENCIA
+ALUNO.FATURA.COBOL(FATRESUM):89: warning: start of statement in Area A [-Wothers]
+   87 |        END-EVALUATE
+   88 | 
+   89 >        PERFORM 8000-LER-DIVERGENCIA
+   90 |            THRU 8000-FIM-LER-DIVERGENCIA
+   91 |        .
+ALUNO.FATURA.COBOL(FATRESUM):91: warning: separator period in Area A [-Wothers]
+   89 |        PERFORM 8000-LER-DIVERGENCIA
+   90 |            THRU 8000-FIM-LER-DIVERGENCIA
+   91 >        .
+   92 | 
+   93 |        2000-FIM-PROCESSAR.
+ALUNO.FATURA.COBOL(FATRESUM): in paragraph '2000-FIM-PROCESSAR':
+ALUNO.FATURA.COBOL(FATRESUM):94: warning: start of statement in Area A [-Wothers]
+   92 | 
+   93 |        2000-FIM-PROCESSAR.
+   94 >        EXIT.
+   95 | 
+   96 |        3000-FINALIZAR.
+
+GnuCOBOL 3.3-dev.0      sistema\work\FATRESU Sun Nov 08 2026 23:57:55  Page 0001
+
+LINE    PG/LN  A...B............................................................
+
+000001         IDENTIFICATION DIVISION.
+000002         PROGRAM-ID.  FATRESUM.
+000003
+000004         ENVIRONMENT DIVISION.
+000005         INPUT-OUTPUT SECTION.
+000006         FILE-CONTROL.
+000007             SELECT ARQ-DIVERG ASSIGN TO FATURA
+000008                    FILE STATUS IS WS-FS-DIVERG.
+000009         DATA DIVISION.
+000010         FILE SECTION.
+000011         FD  ARQ-DIVERG
+000012             RECORDING MODE IS F.
+000013             COPY CPDIVER.
+000001C       *================================================================*
+000002C       * CPDIVER  - DIVERGENCIA DA CONCILIACAO DE PAGAMENTOS            *
+000003C       * LRECL 80, RECFM FB.                                            *
+000004C       *================================================================*
+000005C        01  REG-DIVERGENCIA.
+000006C            05  DV-NUM-CARTAO-MASC     PIC X(16).
+000007C            05  DV-TIPO                PIC X(02).
+000008C                88  DV-PAGTO-SEM-FATURA          VALUE 'PS'.
+000009C                88  DV-FATURA-SEM-PAGTO          VALUE 'FS'.
+000010C                88  DV-PAGTO-A-MENOR             VALUE 'PM'.
+000011C            05  DV-VALOR-FATURA        PIC 9(09)V99.
+000012C            05  DV-VALOR-PAGO          PIC 9(09)V99.
+000013C            05  FILLER                 PIC X(40).
+000014         WORKING-STORAGE SECTION.
+000015         01  WS-FS-DIVERG          PIC X(02).
+000016             88 WS-FS-DIV-OK       VALUE '00'.
+000017             88 WS-FS-DIV-FIM      VALUE '10'.
+000018         01  WS-CONTADORES.
+000019             05 WS-QTD-LIDOS        PIC 9(07) VALUE ZERO.
+000020             05 WS-QTD-PS           PIC 9(07) VALUE ZERO.
+000021             05 WS-QTD-FS           PIC 9(07) VALUE ZERO.
+000022             05 WS-QTD-PM           PIC 9(07) VALUE ZERO.
+000023
+000024         01  WS-TOTAIS.
+000025             05 WS-VLR-FAT-PS       PIC 9(11)V99 VALUE ZERO.
+000026             05 WS-VLR-FAT-FS       PIC 9(11)V99 VALUE ZERO.
+000027             05 WS-VLR-FAT-PM       PIC 9(11)V99 VALUE ZERO.
+000028
+000029             05 WS-VLR-PAG-PS       PIC 9(11)V99 VALUE ZERO.
+000030             05 WS-VLR-PAG-FS       PIC 9(11)V99 VALUE ZERO.
+000031             05 WS-VLR-PAG-PM       PIC 9(11)V99 VALUE ZERO.
+000032
+000033         01  WS-TOT-FATURA          PIC 9(13)V99 VALUE ZERO.
+000034         01  WS-TOT-PAGO            PIC 9(13)V99 VALUE ZERO.
+000035
+000036
+000037         PROCEDURE DIVISION.
+000038         0000-PRINCIPAL.
+000039             PERFORM 1000-INICIALIZAR
+GnuCOBOL 3.3-dev.0      sistema\work\FATRESU Sun Nov 08 2026 23:57:55  Page 0002
+
+LINE    PG/LN  A...B............................................................
+
+000040                THRU 1000-FIM-INICIALIZAR
+000041
+000042             PERFORM 2000-PROCESSAR
+000043                THRU 2000-FIM-PROCESSAR
+000044                UNTIL WS-FS-DIV-FIM
+000045
+000046             PERFORM 3000-FINALIZAR
+000047                THRU 3000-FIM-FINALIZAR
+000048
+000049             GOBACK.
+000050         1000-INICIALIZAR.
+000051
+000052             OPEN INPUT ARQ-DIVERG
+000053
+000054             IF NOT WS-FS-DIV-OK
+000055                DISPLAY 'FATRESUM - ERRO OPEN FATURA.DIVERG'
+000056                DISPLAY 'FS: ' WS-FS-DIVERG
+000057                PERFORM 9900-ENCERRAR-COM-ERRO
+000058             END-IF
+000059
+000060             PERFORM 8000-LER-DIVERGENCIA
+000061                THRU 8000-FIM-LER-DIVERGENCIA
+000062         1000-FIM-INICIALIZAR.
+warning: optional period used
+000063             EXIT.
+000064         2000-PROCESSAR.
+000065
+000066             EVALUATE TRUE
+000067
+000068             WHEN DV-PAGTO-SEM-FATURA
+000069              ADD 1 TO WS-QTD-PS
+000070              ADD DV-VALOR-FATURA TO WS-VLR-FAT-PS
+000071              ADD DV-VALOR-PAGO   TO WS-VLR-PAG-PS
+000072
+000073         WHEN DV-FATURA-SEM-PAGTO
+000074              ADD 1 TO WS-QTD-FS
+000075              ADD DV-VALOR-FATURA TO WS-VLR-FAT-FS
+000076              ADD DV-VALOR-PAGO   TO WS-VLR-PAG-FS
+000077
+000078         WHEN DV-PAGTO-A-MENOR
+000079              ADD 1 TO WS-QTD-PM
+000080              ADD DV-VALOR-FATURA TO WS-VLR-FAT-PM
+000081              ADD DV-VALOR-PAGO   TO WS-VLR-PAG-PM
+000082
+000083         WHEN OTHER
+000084              DISPLAY 'TIPO INVALIDO: ' DV-TIPO
+000085              MOVE 16 TO RETURN-CODE
+000086
+000087         END-EVALUATE
+warning: END-EVALUATE should not start in Area A
+000088
+000089         PERFORM 8000-LER-DIVERGENCIA
+GnuCOBOL 3.3-dev.0      sistema\work\FATRESU Sun Nov 08 2026 23:57:55  Page 0003
+
+LINE    PG/LN  A...B............................................................
+
+warning: start of statement in Area A
+000090             THRU 8000-FIM-LER-DIVERGENCIA
+000091         .
+warning: separator period in Area A
+000092
+000093         2000-FIM-PROCESSAR.
+000094         EXIT.
+warning: start of statement in Area A
+000095
+000096         3000-FINALIZAR.
+000097             CLOSE ARQ-DIVERG
+000098
+000099             IF NOT WS-FS-DIV-OK
+000100                DISPLAY 'FATRESUM - ERRO CLOSE FATURA.DIVERG'
+000101                DISPLAY 'FS: ' WS-FS-DIVERG
+000102                MOVE 16 TO RETURN-CODE
+000103             END-IF
+000104
+000105             COMPUTE WS-TOT-FATURA =
+000106                     WS-VLR-FAT-PS
+000107                   + WS-VLR-FAT-FS
+000108                   + WS-VLR-FAT-PM
+000109
+000110             COMPUTE WS-TOT-PAGO =
+000111                     WS-VLR-PAG-PS
+000112                   + WS-VLR-PAG-FS
+000113                   + WS-VLR-PAG-PM
+000114
+000115             DISPLAY '*** RESUMO DE DIVERGENCIAS ***'
+000116
+000117             DISPLAY 'PS - PAGTO SEM FATURA'
+000118             DISPLAY 'QTD       : ' WS-QTD-PS
+000119             DISPLAY 'VAL FAT   : ' WS-VLR-FAT-PS
+000120             DISPLAY 'VAL PAGO  : ' WS-VLR-PAG-PS
+000121
+000122             DISPLAY 'FS - FATURA SEM PAGTO'
+000123             DISPLAY 'QTD       : ' WS-QTD-FS
+000124             DISPLAY 'VAL FAT   : ' WS-VLR-FAT-FS
+000125             DISPLAY 'VAL PAGO  : ' WS-VLR-PAG-FS
+000126
+000127             DISPLAY 'PM - PAGTO A MENOR'
+000128             DISPLAY 'QTD       : ' WS-QTD-PM
+000129             DISPLAY 'VAL FAT   : ' WS-VLR-FAT-PM
+000130             DISPLAY 'VAL PAGO  : ' WS-VLR-PAG-PM
+000131
+000132             DISPLAY 'TOTAL LIDOS : ' WS-QTD-LIDOS
+000133             DISPLAY 'TOTAL FATURA: ' WS-TOT-FATURA
+000134             DISPLAY 'TOTAL PAGO  : ' WS-TOT-PAGO
+000135
+000136             IF WS-QTD-LIDOS NOT =
+000137                WS-QTD-PS +
+000138                WS-QTD-FS +
+GnuCOBOL 3.3-dev.0      sistema\work\FATRESU Sun Nov 08 2026 23:57:55  Page 0004
+
+LINE    PG/LN  A...B............................................................
+
+000139                WS-QTD-PM
+000140
+000141                DISPLAY 'FATRESUM - ERRO DE FECHAMENTO'
+000142                MOVE 16 TO RETURN-CODE
+000143             END-IF
+000144             .
+000145
+000146         3000-FIM-FINALIZAR.
+000147             EXIT.
+000148         8000-LER-DIVERGENCIA.
+000149
+000150             READ ARQ-DIVERG
+000151                AT END
+000152                   CONTINUE
+000153             END-READ
+000154
+000155             IF NOT WS-FS-DIV-OK
+000156                AND NOT WS-FS-DIV-FIM
+000157
+000158                DISPLAY 'FATRESUM - ERRO READ FATURA.DIVERG'
+000159                DISPLAY 'FS: ' WS-FS-DIVERG
+000160
+000161                PERFORM 9900-ENCERRAR-COM-ERRO
+000162             END-IF
+000163
+000164             IF WS-FS-DIV-OK
+000165                ADD 1 TO WS-QTD-LIDOS
+000166             END-IF
+000167             .
+000168
+000169         8000-FIM-LER-DIVERGENCIA.
+000170             EXIT.
+000171         9900-ENCERRAR-COM-ERRO.
+000172
+000173             MOVE 16 TO RETURN-CODE
+000174             STOP RUN
+000175             .
+warning: line not terminated by a newline
+
+
+GnuCOBOL 3.3-dev.0      sistema\work\FATRESU Sun Nov 08 2026 23:57:55  Page 0005
+
+Error/Warning summary:
+
+ALUNO.FATURA.COBOL(FATRESUM):62: warning: optional period used
+ALUNO.FATURA.COBOL(FATRESUM):87: warning: END-EVALUATE should not start in Area A
+ALUNO.FATURA.COBOL(FATRESUM):89: warning: start of statement in Area A
+ALUNO.FATURA.COBOL(FATRESUM):91: warning: separator period in Area A
+ALUNO.FATURA.COBOL(FATRESUM):94: warning: start of statement in Area A
+ALUNO.FATURA.COBOL(FATRESUM):175: warning: line not terminated by a newline
+
+6 warnings in compilation group
+0 errors in compilation group
