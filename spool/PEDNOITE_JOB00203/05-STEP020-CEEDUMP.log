@@ -1,0 +1,6 @@
+libcob: sistema\work\PEDVALID.cbl:224: error: 'TF-VALOR' (Type: NUMERIC DISPLAY) not numeric: '07,40'
+libcob: sistema\work\PEDVALID.cbl:224: warning: implicit CLOSE of TABELA-TARIFA ('TARIFA')
+
+ Last statement of "PEDVALID" was MOVE
+	1100-CARREGAR-TARIFA at sistema\work\PEDVALID.cbl:224
+ Started by C:\Users\glend\Downloads\mainframe-local\mainframe-local\catalogo\ALUNO.FATURA.LOAD\PEDVALID.exe

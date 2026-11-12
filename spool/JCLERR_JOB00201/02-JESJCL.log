@@ -1,0 +1,402 @@
+        1       *================================================================*
+        2       * PROGRAMA : PEDVALID                                            *
+        3       * SISTEMA  : PEDAGIO NOTURNO (DADOS 100% FICTICIOS)              *
+        4       * OBJETIVO : LER AS PASSAGENS DO DIA (JA ORDENADAS PELO SORT),   *
+        5       *            VALIDAR CADA UMA CONTRA A TABELA DE TARIFAS E       *
+        6       *            SEPARAR EM DOIS ARQUIVOS: APROVADAS (FORMATO        *
+        7       *            INTERNO, VALOR EM COMP-3) E REJEITADAS (REGISTRO    *
+        8       *            ORIGINAL + MOTIVO).                                 *
+        9       * ENTRADAS : DD PASSIN   - PASSAGENS, FB 80                      *
+       10       *            DD TARIFA   - TABELA DE TARIFAS, FB 80, ORDENADA    *
+       11       *                          POR PRACA E CATEGORIA                 *
+       12       * SAIDAS   : DD APROVOUT - APROVADAS, FB 80                      *
+       13       *            DD REJEIOUT - REJEITADAS, FB 120                    *
+       14       * RETORNO  : 0 = OK, 4 = HOUVE REJEITADAS, 16 = ERRO DE ARQUIVO  *
+       15       * HISTORICO: 01/10/2026 VERSAO INICIAL                           *
+       16       *================================================================*
+       17        IDENTIFICATION DIVISION.
+       18        PROGRAM-ID. PEDVALID.
+       19 
+       20        ENVIRONMENT DIVISION.
+       21        INPUT-OUTPUT SECTION.
+       22        FILE-CONTROL.
+       23            SELECT PASSAGEM       ASSIGN TO PASSIN
+       24                   FILE STATUS IS WS-FS-PASSAGEM.
+       25            SELECT TABELA-TARIFA  ASSIGN TO TARIFA
+       26                   FILE STATUS IS WS-FS-TARIFA.
+       27            SELECT APROVADA       ASSIGN TO APROVOUT
+       28                   FILE STATUS IS WS-FS-APROVADA.
+       29            SELECT REJEITADA      ASSIGN TO REJEIOUT
+       30                   FILE STATUS IS WS-FS-REJEITADA.
+       31 
+       32        DATA DIVISION.
+       33        FILE SECTION.
+       34       *--- PASSAGEM RECEBIDA DAS PRACAS (TEXTO, 80 COLUNAS) -----------*
+       35        FD  PASSAGEM
+       36            RECORDING MODE IS F.
+       37        01  REG-PASSAGEM.
+       38            05  PS-TAG                 PIC X(12).
+       39            05  PS-PRACA               PIC X(03).
+       40            05  PS-DATA                PIC 9(08).
+       41            05  PS-HORA                PIC 9(06).
+       42            05  PS-CATEGORIA           PIC 9(01).
+       43                88  PS-ISENTA                    VALUE 9.
+       44            05  PS-VALOR               PIC 9(05)V99.
+       45            05  PS-SENTIDO             PIC X(01).
+       46            05  FILLER                 PIC X(42).
+       47       *--- TABELA DE TARIFAS (TEXTO, 80 COLUNAS) ----------------------*
+       48        FD  TABELA-TARIFA
+       49            RECORDING MODE IS F.
+       50        01  REG-TARIFA.
+       51            05  TF-CHAVE.
+       52                10  TF-PRACA           PIC X(03).
+       53                10  TF-CATEGORIA       PIC 9(01).
+       54            05  TF-VALOR               PIC X(05).
+       55            05  TF-NOME-PRACA          PIC X(20).
+       56            05  FILLER                 PIC X(51).
+       57       *--- PASSAGEM APROVADA (LAYOUT IGUAL AO DO PEDEXTRT) ------------*
+       58       *    ESTE ARQUIVO E BINARIO (COMP-3): NAO TRANSFERIR COMO TEXTO.
+       59        FD  APROVADA
+       60            RECORDING MODE IS F.
+       61        01  REG-APROVADA.
+       62            05  PA-TAG                 PIC X(12).
+       63            05  PA-PRACA               PIC X(03).
+       64            05  PA-DATA                PIC 9(08).
+       65            05  PA-HORA                PIC 9(06).
+       66            05  PA-CATEGORIA           PIC 9(01).
+       67            05  PA-VALOR               PIC S9(05)V99 COMP-3.
+       68            05  PA-TIPO                PIC X(01).
+       69                88  PA-PAGA                      VALUE 'P'.
+       70                88  PA-ISENTA                    VALUE 'I'.
+       71            05  PA-NOME-PRACA          PIC X(20).
+       72            05  PA-SENTIDO             PIC X(01).
+       73            05  FILLER                 PIC X(24).
+       74       *--- PASSAGEM REJEITADA: REGISTRO ORIGINAL + MOTIVO -------------*
+       75       *    INSUMO DE REPROCESSAMENTO, DE ACESSO RESTRITO.
+       76        FD  REJEITADA
+       77            RECORDING MODE IS F.
+       78        01  REG-REJEITADA.
+       79            05  RJ-REGISTRO-ORIGINAL   PIC X(80).
+       80            05  RJ-COD-MOTIVO          PIC 9(02).
+       81            05  RJ-DESC-MOTIVO         PIC X(30).
+       82            05  FILLER                 PIC X(08).
+       83 
+       84        WORKING-STORAGE SECTION.
+       85        01  WS-FS-PASSAGEM             PIC X(02).
+       86            88  WS-FS-PAS-OK                     VALUE '00'.
+       87            88  WS-FS-PAS-FIM                    VALUE '10'.
+       88        01  WS-FS-TARIFA               PIC X(02).
+       89            88  WS-FS-TAR-OK                     VALUE '00'.
+       90            88  WS-FS-TAR-FIM                    VALUE '10'.
+       91        01  WS-FS-APROVADA             PIC X(02).
+       92            88  WS-FS-APR-OK                     VALUE '00'.
+       93        01  WS-FS-REJEITADA            PIC X(02).
+       94            88  WS-FS-REJ-OK                     VALUE '00'.
+       95 
+       96        01  WS-CONTADORES.
+       97            05  WS-QTD-LIDAS           PIC 9(07) VALUE ZERO.
+       98            05  WS-QTD-APROVADAS       PIC 9(07) VALUE ZERO.
+       99            05  WS-QTD-ISENTAS         PIC 9(07) VALUE ZERO.
+      100            05  WS-QTD-REJEITADAS      PIC 9(07) VALUE ZERO.
+      101            05  WS-QTD-POR-MOTIVO      PIC 9(07) OCCURS 6 TIMES.
+      102        01  WS-VALOR-APROVADO          PIC S9(09)V99 COMP-3 VALUE ZERO.
+      103        01  WS-VALOR-EDITADO           PIC ZZZ,ZZZ,ZZ9.99.
+      104        01  WS-MOT                     PIC 9(02).
+      105 
+      106       *--- MOTIVOS DE REJEICAO ----------------------------------------*
+      107        01  WS-MOTIVOS-TEXTO.
+      108            05  FILLER  PIC X(30) VALUE 'TAG INVALIDA'.
+      109            05  FILLER  PIC X(30) VALUE 'DATA DA PASSAGEM INVALIDA'.
+      110            05  FILLER  PIC X(30) VALUE 'VALOR NAO NUMERICO'.
+      111            05  FILLER  PIC X(30) VALUE 'PRACA/CATEGORIA SEM TARIFA'.
+      112            05  FILLER  PIC X(30) VALUE 'VALOR DIFERENTE DA TARIFA'.
+      113            05  FILLER  PIC X(30) VALUE 'PASSAGEM ISENTA, SEM COBRANCA'.
+      114        01  WS-MOTIVOS REDEFINES WS-MOTIVOS-TEXTO.
+      115            05  WS-DESC-MOTIVO         PIC X(30) OCCURS 6 TIMES.
+      116 
+      117        01  WS-VALIDACAO               PIC X(01).
+      118            88  WS-REGISTRO-VALIDO               VALUE 'S'.
+      119            88  WS-REGISTRO-INVALIDO             VALUE 'N'.
+      120 
+      121        01  WS-DATA-VALIDAR.
+      122            05  WS-DV-ANO              PIC 9(04).
+      123            05  WS-DV-MES              PIC 9(02).
+      124                88  WS-MES-VALIDO                VALUE 01 THRU 12.
+      125            05  WS-DV-DIA              PIC 9(02).
+      126                88  WS-DIA-VALIDO                VALUE 01 THRU 31.
+      127 
+      128       *--- TABELA DE TARIFAS EM MEMORIA (CARREGADA DO DD TARIFA) ------*
+      129       *    AS POSICOES NAO USADAS FICAM COM HIGH-VALUES NA CHAVE PARA
+      130       *    QUE A TABELA CONTINUE EM ORDEM CRESCENTE (EXIGENCIA DO
+      131       *    SEARCH ALL). O ARQUIVO PRECISA VIR ORDENADO POR CHAVE.
+      132        01  WS-MAX-TARIFA              PIC 9(03) VALUE 50.
+      133        01  WS-QTD-TARIFA              PIC 9(03) VALUE ZERO.
+      134        01  WS-TABELA-TARIFA.
+      135            05  WS-TF-ITEM OCCURS 50 TIMES
+      136                           ASCENDING KEY IS WS-TF-CHAVE
+      137                           INDEXED BY IX-TF.
+      138                10  WS-TF-CHAVE        PIC X(04).
+      139                10  WS-TF-VALOR        PIC 9(03)V99.
+      140                10  WS-TF-NOME         PIC X(20).
+      141 
+      142        01  WS-CHAVE-BUSCA.
+      143            05  WS-CB-PRACA            PIC X(03).
+      144            05  WS-CB-CATEGORIA        PIC 9(01).
+      145        01  WS-TARIFA-ACHADA           PIC X(01).
+      146            88  WS-ACHOU-TARIFA                  VALUE 'S'.
+      147            88  WS-SEM-TARIFA                    VALUE 'N'.
+      148        01  WS-VALOR-TARIFA            PIC 9(03)V99.
+      149        01  WS-NOME-PRACA              PIC X(20).
+      150 
+      151        PROCEDURE DIVISION.
+      152        0000-PRINCIPAL.
+      153            PERFORM 1000-INICIALIZAR THRU 1000-FIM-INICIALIZAR
+      154            PERFORM 2000-PROCESSAR THRU 2000-FIM-PROCESSAR
+      155               UNTIL WS-FS-PAS-FIM
+      156            PERFORM 3000-FINALIZAR THRU 3000-FIM-FINALIZAR
+      157            STOP RUN.
+      158        0000-FIM-PRINCIPAL.
+      159            EXIT.
+      160 
+      161        1000-INICIALIZAR.
+      162            INITIALIZE WS-CONTADORES
+      163            OPEN INPUT TABELA-TARIFA
+      164            IF NOT WS-FS-TAR-OK
+      165               DISPLAY 'PEDVALID - ERRO NO OPEN DE TARIFA. FS='
+      166                       WS-FS-TARIFA
+      167               PERFORM 9900-ENCERRAR-COM-ERRO
+      168                  THRU 9900-FIM-ENCERRAR-COM-ERRO
+      169            END-IF
+      170            PERFORM VARYING IX-TF FROM 1 BY 1
+      171                    UNTIL IX-TF > WS-MAX-TARIFA
+      172               MOVE HIGH-VALUES TO WS-TF-CHAVE(IX-TF)
+      173               MOVE ZERO        TO WS-TF-VALOR(IX-TF)
+      174               MOVE SPACES      TO WS-TF-NOME(IX-TF)
+      175            END-PERFORM
+      176            PERFORM 1100-CARREGAR-TARIFA THRU 1100-FIM-CARREGAR-TARIFA
+      177               UNTIL WS-FS-TAR-FIM
+      178            CLOSE TABELA-TARIFA
+      179            IF NOT WS-FS-TAR-OK
+      180               DISPLAY 'PEDVALID - ERRO NO CLOSE DE TARIFA. FS='
+      181                       WS-FS-TARIFA
+      182               PERFORM 9900-ENCERRAR-COM-ERRO
+      183                  THRU 9900-FIM-ENCERRAR-COM-ERRO
+      184            END-IF
+      185 
+      186            OPEN INPUT  PASSAGEM
+      187            IF NOT WS-FS-PAS-OK
+      188               DISPLAY 'PEDVALID - ERRO NO OPEN DE PASSIN. FS='
+      189                       WS-FS-PASSAGEM
+      190               PERFORM 9900-ENCERRAR-COM-ERRO
+      191                  THRU 9900-FIM-ENCERRAR-COM-ERRO
+      192            END-IF
+      193            OPEN OUTPUT APROVADA
+      194            IF NOT WS-FS-APR-OK
+      195               DISPLAY 'PEDVALID - ERRO NO OPEN DE APROVOUT. FS='
+      196                       WS-FS-APROVADA
+      197               PERFORM 9900-ENCERRAR-COM-ERRO
+      198                  THRU 9900-FIM-ENCERRAR-COM-ERRO
+      199            END-IF
+      200            OPEN OUTPUT REJEITADA
+      201            IF NOT WS-FS-REJ-OK
+      202               DISPLAY 'PEDVALID - ERRO NO OPEN DE REJEIOUT. FS='
+      203                       WS-FS-REJEITADA
+      204               PERFORM 9900-ENCERRAR-COM-ERRO
+      205                  THRU 9900-FIM-ENCERRAR-COM-ERRO
+      206            END-IF
+      207       *    LEITURA ANTECIPADA: A PRIMEIRA PASSAGEM E LIDA AQUI
+      208            PERFORM 8000-LER-PASSAGEM THRU 8000-FIM-LER-PASSAGEM.
+      209        1000-FIM-INICIALIZAR.
+      210            EXIT.
+      211 
+      212        1100-CARREGAR-TARIFA.
+      213            READ TABELA-TARIFA
+      214               AT END
+      215                  CONTINUE
+      216               NOT AT END
+      217                  IF WS-QTD-TARIFA >= WS-MAX-TARIFA
+      218                     DISPLAY 'PEDVALID - TABELA DE TARIFAS CHEIA'
+      219                     PERFORM 9900-ENCERRAR-COM-ERRO
+      220                        THRU 9900-FIM-ENCERRAR-COM-ERRO
+      221                  END-IF
+      222                  ADD 1 TO WS-QTD-TARIFA
+      223                  MOVE TF-CHAVE      TO WS-TF-CHAVE(WS-QTD-TARIFA)
+      224                  MOVE TF-VALOR      TO WS-TF-VALOR(WS-QTD-TARIFA)
+      225                  MOVE TF-NOME-PRACA TO WS-TF-NOME(WS-QTD-TARIFA)
+      226            END-READ
+      227            IF NOT WS-FS-TAR-OK AND NOT WS-FS-TAR-FIM
+      228               DISPLAY 'PEDVALID - ERRO NO READ DE TARIFA. FS='
+      229                       WS-FS-TARIFA
+      230               PERFORM 9900-ENCERRAR-COM-ERRO
+      231                  THRU 9900-FIM-ENCERRAR-COM-ERRO
+      232            END-IF.
+      233        1100-FIM-CARREGAR-TARIFA.
+      234            EXIT.
+      235 
+      236        2000-PROCESSAR.
+      237            PERFORM 2100-VALIDAR-PASSAGEM THRU 2100-FIM-VALIDAR-PASSAGEM
+      238            IF WS-REGISTRO-VALIDO
+      239               PERFORM 2200-GRAVAR-APROVADA THRU 2200-FIM-GRAVAR-APROVADA
+      240            ELSE
+      241               PERFORM 2300-GRAVAR-REJEITADA
+      242                  THRU 2300-FIM-GRAVAR-REJEITADA
+      243            END-IF
+      244            PERFORM 8000-LER-PASSAGEM THRU 8000-FIM-LER-PASSAGEM.
+      245        2000-FIM-PROCESSAR.
+      246            EXIT.
+      247 
+      248        2100-VALIDAR-PASSAGEM.
+      249            SET WS-REGISTRO-VALIDO TO TRUE
+      250            MOVE PS-DATA TO WS-DATA-VALIDAR
+      251            EVALUATE TRUE
+      252               WHEN PS-TAG IS NOT NUMERIC
+      253                  MOVE 1 TO WS-MOT
+      254               WHEN PS-DATA IS NOT NUMERIC
+      255                 OR NOT WS-MES-VALIDO
+      256                 OR NOT WS-DIA-VALIDO
+      257                  MOVE 2 TO WS-MOT
+      258               WHEN PS-VALOR IS NOT NUMERIC
+      259                  MOVE 3 TO WS-MOT
+      260               WHEN PS-ISENTA
+      261                  MOVE 6 TO WS-MOT
+      262               WHEN OTHER
+      263                  PERFORM 2110-BUSCAR-TARIFA THRU 2110-FIM-BUSCAR-TARIFA
+      264                  EVALUATE TRUE
+      265                     WHEN WS-SEM-TARIFA
+      266                        MOVE 4 TO WS-MOT
+      267                     WHEN PS-VALOR NOT = WS-VALOR-TARIFA
+      268                        MOVE 5 TO WS-MOT
+      269                     WHEN OTHER
+      270                        MOVE 0 TO WS-MOT
+      271                  END-EVALUATE
+      272            END-EVALUATE
+      273            IF WS-MOT NOT = ZERO
+      274               SET WS-REGISTRO-INVALIDO TO TRUE
+      275            END-IF.
+      276        2100-FIM-VALIDAR-PASSAGEM.
+      277            EXIT.
+      278 
+      279        2110-BUSCAR-TARIFA.
+      280            MOVE PS-PRACA     TO WS-CB-PRACA
+      281            MOVE PS-CATEGORIA TO WS-CB-CATEGORIA
+      282            SEARCH ALL WS-TF-ITEM
+      283               AT END
+      284                  SET WS-SEM-TARIFA  TO TRUE
+      285               WHEN WS-TF-CHAVE(IX-TF) = WS-CHAVE-BUSCA
+      286                  SET WS-ACHOU-TARIFA TO TRUE
+      287                  MOVE WS-TF-VALOR(IX-TF) TO WS-VALOR-TARIFA
+      288                  MOVE WS-TF-NOME(IX-TF)  TO WS-NOME-PRACA
+      289            END-SEARCH.
+      290        2110-FIM-BUSCAR-TARIFA.
+      291            EXIT.
+      292 
+      293        2200-GRAVAR-APROVADA.
+      294       *    LIMPA O REGISTRO, INCLUSIVE O FILLER, E MONTA CAMPO A CAMPO
+      295            MOVE SPACES             TO REG-APROVADA
+      296            MOVE PS-TAG             TO PA-TAG
+      297            MOVE PS-PRACA           TO PA-PRACA
+      298            MOVE PS-DATA            TO PA-DATA
+      299            MOVE PS-HORA            TO PA-HORA
+      300            MOVE PS-CATEGORIA       TO PA-CATEGORIA
+      301            MOVE PS-VALOR           TO PA-VALOR
+      302            SET PA-PAGA             TO TRUE
+      303            MOVE WS-NOME-PRACA      TO PA-NOME-PRACA
+      304            MOVE PS-SENTIDO         TO PA-SENTIDO
+      305            WRITE REG-APROVADA
+      306            IF NOT WS-FS-APR-OK
+      307               DISPLAY 'PEDVALID - ERRO NO WRITE DE APROVOUT. FS='
+      308                       WS-FS-APROVADA
+      309               PERFORM 9900-ENCERRAR-COM-ERRO
+      310                  THRU 9900-FIM-ENCERRAR-COM-ERRO
+      311            END-IF
+      312            ADD 1        TO WS-QTD-APROVADAS
+      313            ADD PS-VALOR TO WS-VALOR-APROVADO.
+      314        2200-FIM-GRAVAR-APROVADA.
+      315            EXIT.
+      316 
+      317        2300-GRAVAR-REJEITADA.
+      318            MOVE SPACES                TO REG-REJEITADA
+      319            MOVE REG-PASSAGEM          TO RJ-REGISTRO-ORIGINAL
+      320            MOVE WS-MOT                TO RJ-COD-MOTIVO
+      321            MOVE WS-DESC-MOTIVO(WS-MOT) TO RJ-DESC-MOTIVO
+      322            WRITE REG-REJEITADA
+      323            IF NOT WS-FS-REJ-OK
+      324               DISPLAY 'PEDVALID - ERRO NO WRITE DE REJEIOUT. FS='
+      325                       WS-FS-REJEITADA
+      326               PERFORM 9900-ENCERRAR-COM-ERRO
+      327                  THRU 9900-FIM-ENCERRAR-COM-ERRO
+      328            END-IF
+      329            ADD 1 TO WS-QTD-REJEITADAS
+      330            ADD 1 TO WS-QTD-POR-MOTIVO(WS-MOT).
+      331        2300-FIM-GRAVAR-REJEITADA.
+      332            EXIT.
+      333 
+      334        3000-FINALIZAR.
+      335            CLOSE PASSAGEM
+      336            IF NOT WS-FS-PAS-OK
+      337               DISPLAY 'PEDVALID - ERRO NO CLOSE DE PASSIN. FS='
+      338                       WS-FS-PASSAGEM
+      339               PERFORM 9900-ENCERRAR-COM-ERRO
+      340                  THRU 9900-FIM-ENCERRAR-COM-ERRO
+      341            END-IF
+      342            CLOSE APROVADA
+      343            IF NOT WS-FS-APR-OK
+      344               DISPLAY 'PEDVALID - ERRO NO CLOSE DE APROVOUT. FS='
+      345                       WS-FS-APROVADA
+      346               PERFORM 9900-ENCERRAR-COM-ERRO
+      347                  THRU 9900-FIM-ENCERRAR-COM-ERRO
+      348            END-IF
+      349            CLOSE REJEITADA
+      350            IF NOT WS-FS-REJ-OK
+      351               DISPLAY 'PEDVALID - ERRO NO CLOSE DE REJEIOUT. FS='
+      352                       WS-FS-REJEITADA
+      353               PERFORM 9900-ENCERRAR-COM-ERRO
+      354                  THRU 9900-FIM-ENCERRAR-COM-ERRO
+      355            END-IF
+      356            DISPLAY 'PEDVALID - TARIFAS CARREGADAS : ' WS-QTD-TARIFA
+      357            DISPLAY 'PEDVALID - PASSAGENS LIDAS ...: ' WS-QTD-LIDAS
+      358            DISPLAY 'PEDVALID - GRAVADAS APROVADAS : ' WS-QTD-APROVADAS
+      359            DISPLAY 'PEDVALID -   DAS QUAIS ISENTAS: ' WS-QTD-ISENTAS
+      360            DISPLAY 'PEDVALID - GRAVADAS REJEITADAS: ' WS-QTD-REJEITADAS
+      361            PERFORM VARYING WS-MOT FROM 1 BY 1 UNTIL WS-MOT > 6
+      362               DISPLAY 'PEDVALID -   MOTIVO ' WS-MOT ' '
+      363                       WS-DESC-MOTIVO(WS-MOT) ': '
+      364                       WS-QTD-POR-MOTIVO(WS-MOT)
+      365            END-PERFORM
+      366            MOVE WS-VALOR-APROVADO TO WS-VALOR-EDITADO
+      367            DISPLAY 'PEDVALID - VALOR APROVADO ....: ' WS-VALOR-EDITADO
+      368       *    CONFERENCIA: LIDAS = APROVADAS + REJEITADAS
+      369            IF WS-QTD-LIDAS NOT = WS-QTD-APROVADAS + WS-QTD-REJEITADAS
+      370               DISPLAY 'PEDVALID - CONTADORES NAO FECHAM'
+      371               MOVE 16 TO RETURN-CODE
+      372            ELSE
+      373               IF WS-QTD-REJEITADAS > ZERO
+      374                  MOVE 4 TO RETURN-CODE
+      375               ELSE
+      376                  MOVE 0 TO RETURN-CODE
+      377               END-IF
+      378            END-IF.
+      379        3000-FIM-FINALIZAR.
+      380            EXIT.
+      381 
+      382        8000-LER-PASSAGEM.
+      383            READ PASSAGEM
+      384               AT END
+      385                  CONTINUE
+      386               NOT AT END
+      387                  ADD 1 TO WS-QTD-LIDAS
+      388            END-READ
+      389            IF NOT WS-FS-PAS-OK AND NOT WS-FS-PAS-FIM
+      390               DISPLAY 'PEDVALID - ERRO NO READ DE PASSIN. FS='
+      391                       WS-FS-PASSAGEM
+      392               PERFORM 9900-ENCERRAR-COM-ERRO
+      393                  THRU 9900-FIM-ENCERRAR-COM-ERRO
+      394            END-IF.
+      395        8000-FIM-LER-PASSAGEM.
+      396            EXIT.
+      397 
+      398        9900-ENCERRAR-COM-ERRO.
+      399            MOVE 16 TO RETURN-CODE
+      400            STOP RUN.
+      401        9900-FIM-ENCERRAR-COM-ERRO.
+      402            EXIT.
