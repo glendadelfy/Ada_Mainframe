@@ -262,25 +262,60 @@
            .
        2100-FIM-IDENTIFICAR.
            EXIT.
-       2200-DIVIDIR-VALOR.
+
+        2200-DIVIDIR-VALOR.
            EVALUATE WS-BIN-PRODUTO(IX-BIN)
               WHEN 'C'
                  MOVE 2.2000 TO WS-TX-MDR
                  MOVE 1.5000 TO WS-TX-INTERCAMBIO
                  MOVE 0.1000 TO WS-TX-BANDEIRA
-               WHEN 'D'
+
+              WHEN 'D'
                  MOVE 1.1000 TO WS-TX-MDR
                  MOVE 0.5000 TO WS-TX-INTERCAMBIO
                  MOVE 0.0500 TO WS-TX-BANDEIRA
 
-       2200-DIVIDIR-VALOR.
-      *    A ESCREVER (AO VIVO): ESCOLHER AS TAXAS PELO PRODUTO DO BIN
-      *    (WS-BIN-PRODUTO(IX-BIN): C, D OU P) E CALCULAR, COM ROUNDED:
-      *    WS-VL-MDR, WS-VL-INTERCAMBIO E WS-VL-BANDEIRA. DEPOIS:
-      *    CREDENCIADOR = MDR - INTERCAMBIO - BANDEIRA
-      *    LIQUIDO = VALOR - MDR
-      *    E SOMAR TUDO NOS TOTAIS (WS-TT-...).
-           CONTINUE
+              WHEN OTHER
+                 MOVE 1.4000 TO WS-TX-MDR
+                 MOVE 0.7000 TO WS-TX-INTERCAMBIO
+                 MOVE 0.0500 TO WS-TX-BANDEIRA
+           END-EVALUATE
+
+           COMPUTE WS-VL-MDR ROUNDED =
+                   PD-VALOR * WS-TX-MDR / 100
+
+           COMPUTE WS-VL-INTERCAMBIO ROUNDED =
+                   PD-VALOR * WS-TX-INTERCAMBIO / 100
+
+           COMPUTE WS-VL-BANDEIRA ROUNDED =
+                   PD-VALOR * WS-TX-BANDEIRA / 100
+
+           COMPUTE WS-VL-CREDENCIADOR =
+                   WS-VL-MDR
+                 - WS-VL-INTERCAMBIO
+                 - WS-VL-BANDEIRA
+
+           COMPUTE WS-VL-LIQUIDO =
+                   PD-VALOR
+                 - WS-VL-MDR
+
+           ADD PD-VALOR
+                TO WS-TT-VALOR
+
+           ADD WS-VL-MDR
+                TO WS-TT-MDR
+
+           ADD WS-VL-INTERCAMBIO
+                TO WS-TT-INTERCAMBIO
+
+           ADD WS-VL-BANDEIRA
+                TO WS-TT-BANDEIRA
+
+           ADD WS-VL-CREDENCIADOR
+                TO WS-TT-CREDENCIADOR
+
+           ADD WS-VL-LIQUIDO
+                TO WS-TT-LIQUIDO
            .
        2200-FIM-DIVIDIR-VALOR.
            EXIT.

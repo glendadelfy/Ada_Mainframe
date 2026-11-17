@@ -1,0 +1,399 @@
+        1       *================================================================*
+        2       * PROGRAMA : CICBIN (ESQUELETO DA TURMA)                         *
+        3       * AULA     : 1 - ECOSSISTEMA E PAPEIS                            *
+        4       * OBJETIVO : IDENTIFICAR, PELO BIN DE 8 DIGITOS, A BANDEIRA, O   *
+        5       *            EMISSOR E O PRODUTO DE CADA COMPRA E SIMULAR A      *
+        6       *            DIVISAO DO VALOR ENTRE OS PARTICIPANTES:            *
+        7       *            MDR (TAXA DE DESCONTO) = INTERCAMBIO (EMISSOR)      *
+        8       *              + TARIFA DE BANDEIRA + RECEITA DO CREDENCIADOR    *
+        9       *            LIQUIDO DO ESTABELECIMENTO = VALOR - MDR            *
+       10       *            AS TAXAS SAO FICTICIAS, UMA POR PRODUTO.            *
+       11       * ENTRADAS : DD BINTAB   - CPBIN, FB 80, ORDENADA POR BIN        *
+       12       *            DD PEDIDOS  - CPAUTPED, FB 80                       *
+       13       * SAIDA    : DD RELBIN   - RELATORIO, FBA 133                    *
+       14       * RETORNO  : 0 = OK, 4 = HOUVE BIN NAO CADASTRADO,               *
+       15       *            16 = ERRO DE ARQUIVO                                *
+       16       * A ESCREVER NA AULA 1:                                          *
+       17       * 2200-DIVIDIR-VALOR (AO VIVO, COM A TURMA)                      *
+       18       * 3100-RESUMO-PARTICIPANTES (DESAFIO DO FIM DE SEMANA)           *
+       19       *================================================================*
+       20        IDENTIFICATION DIVISION.
+       21        PROGRAM-ID. CICBIN.
+       22 
+       23        ENVIRONMENT DIVISION.
+       24        INPUT-OUTPUT SECTION.
+       25        FILE-CONTROL.
+       26            SELECT TABELA-BIN  ASSIGN TO BINTAB
+       27                   FILE STATUS IS WS-FS-BIN.
+       28            SELECT PEDIDOS     ASSIGN TO PEDIDOS
+       29                   FILE STATUS IS WS-FS-PEDIDO.
+       30            SELECT RELATORIO   ASSIGN TO RELBIN
+       31                   FILE STATUS IS WS-FS-RELATORIO.
+       32 
+       33        DATA DIVISION.
+       34        FILE SECTION.
+       35        FD  TABELA-BIN
+       36            RECORDING MODE IS F.
+       37            COPY CPBIN.
+       38        FD  PEDIDOS
+       39            RECORDING MODE IS F.
+       40            COPY CPAUTPED.
+       41        FD  RELATORIO
+       42            RECORDING MODE IS F.
+       43        01  REG-RELATORIO              PIC X(132).
+       44 
+       45        WORKING-STORAGE SECTION.
+       46        01  WS-FS-BIN                  PIC X(02).
+       47            88  WS-FS-BIN-OK                     VALUE '00'.
+       48            88  WS-FS-BIN-FIM                    VALUE '10'.
+       49        01  WS-FS-PEDIDO               PIC X(02).
+       50            88  WS-FS-PED-OK                     VALUE '00'.
+       51            88  WS-FS-PED-FIM                    VALUE '10'.
+       52        01  WS-FS-RELATORIO            PIC X(02).
+       53            88  WS-FS-REL-OK                     VALUE '00'.
+       54 
+       55       *--- TABELA DE BINS EM MEMORIA (SEARCH ALL) ---------------------*
+       56       *    AS POSICOES NAO USADAS FICAM COM 99999999 PARA A TABELA
+       57       *    CONTINUAR EM ORDEM CRESCENTE
+       58        01  WS-MAX-BIN                 PIC 9(03) VALUE 50.
+       59        01  WS-QTD-BIN                 PIC 9(03) VALUE ZERO.
+       60        01  WS-TABELA-BIN.
+       61            05  WS-BIN-ITEM OCCURS 50 TIMES
+       62                            ASCENDING KEY IS WS-BIN-CODIGO
+       63                            INDEXED BY IX-BIN.
+       64                10  WS-BIN-CODIGO      PIC 9(08).
+       65                10  WS-BIN-BANDEIRA    PIC X(10).
+       66                10  WS-BIN-EMISSOR     PIC X(20).
+       67                10  WS-BIN-PRODUTO     PIC X(01).
+       68 
+       69       *--- TAXAS FICTICIAS POR PRODUTO (PERCENTUAIS) ------------------*
+       70       *    CREDITO: MDR 2,20  INTERCAMBIO 1,50  BANDEIRA 0,10
+       71       *    DEBITO : MDR 1,10  INTERCAMBIO 0,50  BANDEIRA 0,05
+       72       *    PRE-PAG: MDR 1,40  INTERCAMBIO 0,70  BANDEIRA 0,05
+       73        01  WS-TAXAS.
+       74            05  WS-TX-MDR              PIC 9(01)V9(04).
+       75            05  WS-TX-INTERCAMBIO      PIC 9(01)V9(04).
+       76            05  WS-TX-BANDEIRA         PIC 9(01)V9(04).
+       77 
+       78        01  WS-BIN-PEDIDO              PIC 9(08).
+       79        01  WS-ACHOU-BIN               PIC X(01).
+       80            88  WS-BIN-ENCONTRADO                VALUE 'S'.
+       81            88  WS-BIN-NAO-ENCONTRADO            VALUE 'N'.
+       82 
+       83       *--- VALORES DE UMA COMPRA --------------------------------------*
+       84        01  WS-VALORES.
+       85            05  WS-VL-MDR              PIC 9(09)V99 VALUE ZERO.
+       86            05  WS-VL-INTERCAMBIO      PIC 9(09)V99 VALUE ZERO.
+       87            05  WS-VL-BANDEIRA         PIC 9(09)V99 VALUE ZERO.
+       88            05  WS-VL-CREDENCIADOR     PIC 9(09)V99 VALUE ZERO.
+       89            05  WS-VL-LIQUIDO          PIC 9(09)V99 VALUE ZERO.
+       90 
+       91       *--- TOTAIS POR PARTICIPANTE ------------------------------------*
+       92        01  WS-TOTAIS.
+       93            05  WS-TT-VALOR            PIC 9(11)V99 VALUE ZERO.
+       94            05  WS-TT-MDR              PIC 9(11)V99 VALUE ZERO.
+       95            05  WS-TT-INTERCAMBIO      PIC 9(11)V99 VALUE ZERO.
+       96            05  WS-TT-BANDEIRA         PIC 9(11)V99 VALUE ZERO.
+       97            05  WS-TT-CREDENCIADOR     PIC 9(11)V99 VALUE ZERO.
+       98            05  WS-TT-LIQUIDO          PIC 9(11)V99 VALUE ZERO.
+       99 
+      100        01  WS-CONTADORES.
+      101            05  WS-QTD-LIDOS           PIC 9(07) VALUE ZERO.
+      102            05  WS-QTD-COMPRAS         PIC 9(07) VALUE ZERO.
+      103            05  WS-QTD-SEM-BIN         PIC 9(07) VALUE ZERO.
+      104            05  WS-QTD-IGNORADOS       PIC 9(07) VALUE ZERO.
+      105 
+      106       *--- MASCARAMENTO -----------------------------------------------*
+      107        01  WS-CONFERENCIA             PIC X(01) VALUE 'S'.
+      108            88  WS-CONTAS-FECHAM                 VALUE 'S'.
+      109            88  WS-CONTAS-NAO-FECHAM             VALUE 'N'.
+      110 
+      111        01  WS-CARTAO-ABERTO           PIC X(16).
+      112        01  WS-CARTAO-MASC             PIC X(16).
+      113 
+      114       *--- LINHAS DO RELATORIO ----------------------------------------*
+      115        01  WS-CAB-1.
+      116            05  FILLER                 PIC X(60) VALUE
+      117                'CICLO DO CARTAO - IDENTIFICACAO E DIVISAO DO VALOR'.
+      118            05  FILLER                 PIC X(20) VALUE
+      119                '(DADOS FICTICIOS)'.
+      120        01  WS-CAB-2.
+      121            05  FILLER                 PIC X(18) VALUE 'CARTAO'.
+      122            05  FILLER                 PIC X(12) VALUE 'BANDEIRA'.
+      123            05  FILLER                 PIC X(22) VALUE 'EMISSOR'.
+      124            05  FILLER                 PIC X(04) VALUE 'PRD'.
+      125            05  FILLER                 PIC X(14) VALUE '         VALOR'.
+      126            05  FILLER                 PIC X(12) VALUE '         MDR'.
+      127            05  FILLER                 PIC X(12) VALUE ' INTERCAMBIO'.
+      128            05  FILLER                 PIC X(12) VALUE '    BANDEIRA'.
+      129            05  FILLER                 PIC X(12) VALUE ' CREDENCIAD.'.
+      130            05  FILLER                 PIC X(14) VALUE '       LIQUIDO'.
+      131        01  WS-DETALHE.
+      132            05  DT-CARTAO              PIC X(16).
+      133            05  FILLER                 PIC X(02) VALUE SPACES.
+      134            05  DT-BANDEIRA            PIC X(10).
+      135            05  FILLER                 PIC X(02) VALUE SPACES.
+      136            05  DT-EMISSOR             PIC X(20).
+      137            05  FILLER                 PIC X(02) VALUE SPACES.
+      138            05  DT-PRODUTO             PIC X(01).
+      139            05  FILLER                 PIC X(01) VALUE SPACES.
+      140            05  DT-VALOR               PIC ZZZ,ZZZ,ZZ9.99.
+      141            05  DT-MDR                 PIC ZZZ,ZZ9.99.
+      142            05  FILLER                 PIC X(02) VALUE SPACES.
+      143            05  DT-INTERCAMBIO         PIC ZZZ,ZZ9.99.
+      144            05  FILLER                 PIC X(02) VALUE SPACES.
+      145            05  DT-TARIFA              PIC ZZZ,ZZ9.99.
+      146            05  FILLER                 PIC X(02) VALUE SPACES.
+      147            05  DT-CREDENCIADOR        PIC ZZZ,ZZ9.99.
+      148            05  FILLER                 PIC X(02) VALUE SPACES.
+      149            05  DT-LIQUIDO             PIC ZZZ,ZZZ,ZZ9.99.
+      150        01  WS-LINHA-SEM-BIN.
+      151            05  SB-CARTAO              PIC X(16).
+      152            05  FILLER                 PIC X(02) VALUE SPACES.
+      153            05  FILLER                 PIC X(40) VALUE
+      154                'BIN NAO CADASTRADO: COMPRA NAO ROTEADA'.
+      155        01  WS-LINHA-TOTAL.
+      156            05  LT-DESCRICAO           PIC X(50).
+      157            05  LT-VALOR               PIC ZZ,ZZZ,ZZZ,ZZ9.99.
+      158        01  WS-LINHA-CONFERE.
+      159            05  CF-TEXTO               PIC X(60).
+      160            05  CF-RESULTADO           PIC X(20).
+      161 
+      162        PROCEDURE DIVISION.
+      163        0000-PRINCIPAL.
+      164            PERFORM 1000-INICIALIZAR THRU 1000-FIM-INICIALIZAR
+      165            PERFORM 2000-PROCESSAR   THRU 2000-FIM-PROCESSAR
+      166               UNTIL WS-FS-PED-FIM
+      167            PERFORM 3000-FINALIZAR   THRU 3000-FIM-FINALIZAR
+      168            STOP RUN.
+      169 
+      170        1000-INICIALIZAR.
+      171 
+      172            OPEN INPUT TABELA-BIN
+      173            IF NOT WS-FS-BIN-OK
+      174               DISPLAY 'CICBIN - ERRO DE OPEN TABELA-BIN (BINTAB) FS: '
+      175                       WS-FS-BIN
+      176               PERFORM 9900-ENCERRAR-COM-ERRO
+      177            END-IF
+      178            OPEN INPUT PEDIDOS
+      179            IF NOT WS-FS-PED-OK
+      180               DISPLAY 'CICBIN - ERRO DE OPEN PEDIDOS (PEDIDOS) FS: '
+      181                       WS-FS-PEDIDO
+      182               PERFORM 9900-ENCERRAR-COM-ERRO
+      183            END-IF
+      184            OPEN OUTPUT RELATORIO
+      185            IF NOT WS-FS-REL-OK
+      186               DISPLAY 'CICBIN - ERRO DE OPEN RELATORIO (RELBIN) FS: '
+      187                       WS-FS-RELATORIO
+      188               PERFORM 9900-ENCERRAR-COM-ERRO
+      189            END-IF
+      190 
+      191            PERFORM 1100-CARREGAR-BINS THRU 1100-FIM-CARREGAR-BINS
+      192 
+      193            WRITE REG-RELATORIO FROM WS-CAB-1 AFTER ADVANCING PAGE
+      194            WRITE REG-RELATORIO FROM WS-CAB-2 AFTER ADVANCING 2 LINES
+      195            MOVE SPACES TO REG-RELATORIO
+      196            WRITE REG-RELATORIO AFTER ADVANCING 1 LINE
+      197 
+      198            PERFORM 8000-LER-PEDIDO THRU 8000-FIM-LER-PEDIDO
+      199            .
+      200        1000-FIM-INICIALIZAR.
+      201            EXIT.
+      202 
+      203        1100-CARREGAR-BINS.
+      204       *    POSICOES VAZIAS COM O MAIOR BIN POSSIVEL (ORDEM CRESCENTE)
+      205            PERFORM VARYING IX-BIN FROM 1 BY 1 UNTIL IX-BIN > WS-MAX-BIN
+      206               MOVE 99999999 TO WS-BIN-CODIGO(IX-BIN)
+      207            END-PERFORM
+      208            READ TABELA-BIN
+      209            PERFORM UNTIL WS-FS-BIN-FIM
+      210               ADD 1 TO WS-QTD-BIN
+      211               IF WS-QTD-BIN > WS-MAX-BIN
+      212                  DISPLAY 'CICBIN - TABELA DE BINS MAIOR QUE O LIMITE'
+      213                  PERFORM 9900-ENCERRAR-COM-ERRO
+      214               END-IF
+      215               MOVE BN-BIN           TO WS-BIN-CODIGO(WS-QTD-BIN)
+      216               MOVE BN-NOME-BANDEIRA TO WS-BIN-BANDEIRA(WS-QTD-BIN)
+      217               MOVE BN-NOME-EMISSOR  TO WS-BIN-EMISSOR(WS-QTD-BIN)
+      218               MOVE BN-PRODUTO       TO WS-BIN-PRODUTO(WS-QTD-BIN)
+      219               READ TABELA-BIN
+      220            END-PERFORM
+      221            CLOSE TABELA-BIN
+      222            DISPLAY 'CICBIN - BINS CARREGADOS ......: ' WS-QTD-BIN
+      223            .
+      224        1100-FIM-CARREGAR-BINS.
+      225            EXIT.
+      226 
+      227        2000-PROCESSAR.
+      228       *    SO AS COMPRAS (0100, 0200 E O AVISO 0120) ENTRAM NA DIVISAO;
+      229       *    SAQUES E REVERSOES NAO SAO VENDAS DE UM ESTABELECIMENTO
+      230            IF (PD-PEDIDO-DUPLA OR PD-PEDIDO-UNICA OR PD-AVISO-STANDIN)
+      231               AND PD-COMPRA
+      232               ADD 1 TO WS-QTD-COMPRAS
+      233               PERFORM 2100-IDENTIFICAR THRU 2100-FIM-IDENTIFICAR
+      234               IF WS-BIN-ENCONTRADO
+      235                  PERFORM 2200-DIVIDIR-VALOR THRU 2200-FIM-DIVIDIR-VALOR
+      236                  PERFORM 2300-IMPRIMIR      THRU 2300-FIM-IMPRIMIR
+      237               ELSE
+      238                  ADD 1 TO WS-QTD-SEM-BIN
+      239                  MOVE PD-NUM-CARTAO TO WS-CARTAO-ABERTO
+      240                  PERFORM 9800-MASCARAR-CARTAO
+      241                  MOVE WS-CARTAO-MASC TO SB-CARTAO
+      242                  WRITE REG-RELATORIO FROM WS-LINHA-SEM-BIN
+      243                        AFTER ADVANCING 1 LINE
+      244               END-IF
+      245            ELSE
+      246               ADD 1 TO WS-QTD-IGNORADOS
+      247            END-IF
+      248            PERFORM 8000-LER-PEDIDO THRU 8000-FIM-LER-PEDIDO
+      249            .
+      250        2000-FIM-PROCESSAR.
+      251            EXIT.
+      252 
+      253        2100-IDENTIFICAR.
+      254       *    O BIN SAO OS 8 PRIMEIROS DIGITOS DO NUMERO DO CARTAO
+      255            MOVE PD-NUM-CARTAO(1:8) TO WS-BIN-PEDIDO
+      256            SEARCH ALL WS-BIN-ITEM
+      257               AT END
+      258                  SET WS-BIN-NAO-ENCONTRADO TO TRUE
+      259               WHEN WS-BIN-CODIGO(IX-BIN) = WS-BIN-PEDIDO
+      260                  SET WS-BIN-ENCONTRADO     TO TRUE
+      261            END-SEARCH
+      262            .
+      263        2100-FIM-IDENTIFICAR.
+      264            EXIT.
+      265 
+      266         2200-DIVIDIR-VALOR.
+      267            EVALUATE WS-BIN-PRODUTO(IX-BIN)
+      268               WHEN 'C'
+      269                  MOVE 2.2000 TO WS-TX-MDR
+      270                  MOVE 1.5000 TO WS-TX-INTERCAMBIO
+      271                  MOVE 0.1000 TO WS-TX-BANDEIRA
+      272 
+      273               WHEN 'D'
+      274                  MOVE 1.1000 TO WS-TX-MDR
+      275                  MOVE 0.5000 TO WS-TX-INTERCAMBIO
+      276                  MOVE 0.0500 TO WS-TX-BANDEIRA
+      277 
+      278               WHEN OTHER
+      279                  MOVE 1.4000 TO WS-TX-MDR
+      280                  MOVE 0.7000 TO WS-TX-INTERCAMBIO
+      281                  MOVE 0.0500 TO WS-TX-BANDEIRA
+      282            END-EVALUATE
+      283 
+      284            COMPUTE WS-VL-MDR ROUNDED =
+      285                    PD-VALOR * WS-TX-MDR / 100
+      286 
+      287            COMPUTE WS-VL-INTERCAMBIO ROUNDED =
+      288                    PD-VALOR * WS-TX-INTERCAMBIO / 100
+      289 
+      290            COMPUTE WS-VL-BANDEIRA ROUNDED =
+      291                    PD-VALOR * WS-TX-BANDEIRA / 100
+      292 
+      293            COMPUTE WS-VL-CREDENCIADOR =
+      294                    WS-VL-MDR
+      295                  - WS-VL-INTERCAMBIO
+      296                  - WS-VL-BANDEIRA
+      297 
+      298            COMPUTE WS-VL-LIQUIDO =
+      299                    PD-VALOR
+      300                  - WS-VL-MDR
+      301 
+      302            ADD PD-VALOR
+      303                 TO WS-TT-VALOR
+      304 
+      305            ADD WS-VL-MDR
+      306                 TO WS-TT-MDR
+      307 
+      308            ADD WS-VL-INTERCAMBIO
+      309                 TO WS-TT-INTERCAMBIO
+      310 
+      311            ADD WS-VL-BANDEIRA
+      312                 TO WS-TT-BANDEIRA
+      313 
+      314            ADD WS-VL-CREDENCIADOR
+      315                 TO WS-TT-CREDENCIADOR
+      316 
+      317            ADD WS-VL-LIQUIDO
+      318                 TO WS-TT-LIQUIDO
+      319            .
+      320        2200-FIM-DIVIDIR-VALOR.
+      321            EXIT.
+      322 
+      323        2300-IMPRIMIR.
+      324            MOVE PD-NUM-CARTAO            TO WS-CARTAO-ABERTO
+      325            PERFORM 9800-MASCARAR-CARTAO
+      326            MOVE WS-CARTAO-MASC           TO DT-CARTAO
+      327            MOVE WS-BIN-BANDEIRA(IX-BIN)  TO DT-BANDEIRA
+      328            MOVE WS-BIN-EMISSOR(IX-BIN)   TO DT-EMISSOR
+      329            MOVE WS-BIN-PRODUTO(IX-BIN)   TO DT-PRODUTO
+      330            MOVE PD-VALOR                 TO DT-VALOR
+      331            MOVE WS-VL-MDR                TO DT-MDR
+      332            MOVE WS-VL-INTERCAMBIO        TO DT-INTERCAMBIO
+      333            MOVE WS-VL-BANDEIRA           TO DT-TARIFA
+      334            MOVE WS-VL-CREDENCIADOR       TO DT-CREDENCIADOR
+      335            MOVE WS-VL-LIQUIDO            TO DT-LIQUIDO
+      336            WRITE REG-RELATORIO FROM WS-DETALHE AFTER ADVANCING 1 LINE
+      337            IF NOT WS-FS-REL-OK
+      338               DISPLAY 'CICBIN - ERRO DE WRITE NO RELBIN FS: '
+      339                       WS-FS-RELATORIO
+      340               PERFORM 9900-ENCERRAR-COM-ERRO
+      341            END-IF
+      342            .
+      343        2300-FIM-IMPRIMIR.
+      344            EXIT.
+      345 
+      346        3000-FINALIZAR.
+      347            PERFORM 3100-RESUMO-PARTICIPANTES
+      348               THRU 3100-FIM-RESUMO-PARTICIPANTES
+      349            CLOSE PEDIDOS RELATORIO
+      350            DISPLAY 'CICBIN - PEDIDOS LIDOS ........: ' WS-QTD-LIDOS
+      351            DISPLAY 'CICBIN - COMPRAS ..............: ' WS-QTD-COMPRAS
+      352            DISPLAY 'CICBIN -   COM BIN NAO CADASTR.: ' WS-QTD-SEM-BIN
+      353            DISPLAY 'CICBIN - IGNORADOS (SAQUE/REV.): ' WS-QTD-IGNORADOS
+      354            EVALUATE TRUE
+      355               WHEN WS-CONTAS-NAO-FECHAM
+      356                  MOVE 8 TO RETURN-CODE
+      357               WHEN WS-QTD-SEM-BIN > ZERO
+      358                  MOVE 4 TO RETURN-CODE
+      359               WHEN OTHER
+      360                  MOVE 0 TO RETURN-CODE
+      361            END-EVALUATE
+      362            .
+      363        3000-FIM-FINALIZAR.
+      364            EXIT.
+      365 
+      366        3100-RESUMO-PARTICIPANTES.
+      367       *    A ESCREVER (DESAFIO): IMPRIMIR NO RELATORIO O RESUMO POR
+      368       *    PARTICIPANTE (ESTABELECIMENTOS, CREDENCIADOR, EMISSORES,
+      369       *    BANDEIRAS) COM AS LINHAS WS-LINHA-TOTAL E PROVAR QUE:
+      370       *    1. VALOR = LIQUIDO + MDR
+      371       *    2. MDR = INTERCAMBIO + BANDEIRA + CREDENCIADOR
+      372       *    SE ALGUMA CONTA NAO FECHAR: SET WS-CONTAS-NAO-FECHAM TO TRUE.
+      373            CONTINUE
+      374            .
+      375        3100-FIM-RESUMO-PARTICIPANTES.
+      376            EXIT.
+      377 
+      378        8000-LER-PEDIDO.
+      379            READ PEDIDOS
+      380                 AT END
+      381                    CONTINUE
+      382                 NOT AT END
+      383                    ADD 1 TO WS-QTD-LIDOS
+      384            END-READ
+      385            IF NOT WS-FS-PED-OK AND NOT WS-FS-PED-FIM
+      386               DISPLAY 'CICBIN - ERRO DE READ PEDIDOS FS: ' WS-FS-PEDIDO
+      387               PERFORM 9900-ENCERRAR-COM-ERRO
+      388            END-IF
+      389            .
+      390        8000-FIM-LER-PEDIDO.
+      391            EXIT.
+      392 
+      393            COPY CPMASCAR.
+      394 
+      395        9900-ENCERRAR-COM-ERRO.
+      396       *    ENCERRA COM RC 16 PARA IMPEDIR OS STEPS SEGUINTES
+      397            MOVE 16 TO RETURN-CODE
+      398            STOP RUN
+      399            .
