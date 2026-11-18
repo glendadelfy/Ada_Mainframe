@@ -1,0 +1,477 @@
+        1       *================================================================*
+        2       * PROGRAMA : CICAUTOR (ESQUELETO DA TURMA)                       *
+        3       * AULA     : 2 - AUTORIZACAO E CAPTURA                           *
+        4       * OBJETIVO : SIMULAR EM BATCH A AUTORIZACAO DO EMISSOR. PARA     *
+        5       *            CADA PEDIDO, NA ORDEM EM QUE CHEGOU:                *
+        6       *            0100/0200: APLICA AS REGRAS DO EMISSOR NA ORDEM E   *
+        7       *                       RESPONDE (0110/0210) COM O DE 39;        *
+        8       *            0120     : REGISTRA A DECISAO TOMADA PELA BANDEIRA  *
+        9       *                       EM STAND-IN E CONFIRMA (0130);           *
+       10       *            0400/0420: REVERTE A AUTORIZACAO ORIGINAL E         *
+       11       *                       DEVOLVE O LIMITE (0410/0430).            *
+       12       *            NA VIDA REAL A AUTORIZACAO E ONLINE. AQUI O LOG E   *
+       13       *            GRAVADO NO FIM, COM A SITUACAO FINAL DE CADA        *
+       14       *            AUTORIZACAO (REVERTIDA OU NAO).                     *
+       15       * ENTRADAS : DD CONTAS   - CPCONTA, FB 80, ORDENADO POR CARTAO   *
+       16       *            DD PEDIDOS  - CPAUTPED, FB 80                       *
+       17       * SAIDAS   : DD LOGOUT   - CPAUTLOG, FB 120                      *
+       18       *            DD CONTOUT  - CPCONTA, FB 80 (LIMITES ATUALIZADOS)  *
+       19       * RETORNO  : 0 = OK, 16 = ERRO DE ARQUIVO OU DE TABELA           *
+       20       * A ESCREVER NA AULA 2:                                          *
+       21       * 2200-DECIDIR (AO VIVO, COM A TURMA)                            *
+       22       * 2500-REVERTER (MAO NA MASSA)                                   *
+       23       *================================================================*
+       24        IDENTIFICATION DIVISION.
+       25        PROGRAM-ID. CICAUTOR.
+       26 
+       27        ENVIRONMENT DIVISION.
+       28        INPUT-OUTPUT SECTION.
+       29        FILE-CONTROL.
+       30            SELECT CONTAS-ENTRADA ASSIGN TO CONTAS
+       31                   FILE STATUS IS WS-FS-CONTAS.
+       32            SELECT PEDIDOS        ASSIGN TO PEDIDOS
+       33                   FILE STATUS IS WS-FS-PEDIDO.
+       34            SELECT LOG-AUTORIZ    ASSIGN TO LOGOUT
+       35                   FILE STATUS IS WS-FS-LOG.
+       36            SELECT CONTAS-SAIDA   ASSIGN TO CONTOUT
+       37                   FILE STATUS IS WS-FS-CONTOUT.
+       38 
+       39        DATA DIVISION.
+       40        FILE SECTION.
+       41        FD  CONTAS-ENTRADA
+       42            RECORDING MODE IS F.
+       43            COPY CPCONTA.
+       44        FD  PEDIDOS
+       45            RECORDING MODE IS F.
+       46            COPY CPAUTPED.
+       47        FD  LOG-AUTORIZ
+       48            RECORDING MODE IS F.
+       49            COPY CPAUTLOG.
+       50        FD  CONTAS-SAIDA
+       51            RECORDING MODE IS F.
+       52        01  REG-CONTA-SAIDA            PIC X(80).
+       53 
+       54        WORKING-STORAGE SECTION.
+       55        01  WS-FS-CONTAS               PIC X(02).
+       56            88  WS-FS-CON-OK                     VALUE '00'.
+       57            88  WS-FS-CON-FIM                    VALUE '10'.
+       58        01  WS-FS-PEDIDO               PIC X(02).
+       59            88  WS-FS-PED-OK                     VALUE '00'.
+       60            88  WS-FS-PED-FIM                    VALUE '10'.
+       61        01  WS-FS-LOG                  PIC X(02).
+       62            88  WS-FS-LOG-OK                     VALUE '00'.
+       63        01  WS-FS-CONTOUT              PIC X(02).
+       64            88  WS-FS-COU-OK                     VALUE '00'.
+       65 
+       66       *--- CONTAS EM MEMORIA (SEARCH ALL PELO CARTAO) -----------------*
+       67       *    CADA POSICAO GUARDA O REGISTRO INTEIRO; O LIMITE DISPONIVEL
+       68       *    E ATUALIZADO NA PROPRIA TABELA E GRAVADO NO FIM
+       69        01  WS-MAX-CONTAS              PIC 9(03) VALUE 200.
+       70        01  WS-QTD-CONTAS              PIC 9(03) VALUE ZERO.
+       71        01  WS-TABELA-CONTAS.
+       72            05  WS-CT-ITEM OCCURS 200 TIMES
+       73                           ASCENDING KEY IS WS-CT-CARTAO
+       74                           INDEXED BY IX-CT.
+       75                10  WS-CT-CARTAO       PIC X(16).
+       76                10  WS-CT-STATUS       PIC X(01).
+       77                10  WS-CT-VALIDADE     PIC 9(06).
+       78                10  WS-CT-DISP         PIC S9(09)V99.
+       79                10  WS-CT-EXTERIOR     PIC X(01).
+       80                10  WS-CT-SAQUE        PIC 9(07)V99.
+       81                10  WS-CT-REGISTRO     PIC X(80).
+       82 
+       83        01  WS-DISP-SAIDA              PIC S9(09)V99
+       84                                       SIGN IS LEADING SEPARATE.
+       85        01  WS-DISP-SAIDA-X REDEFINES WS-DISP-SAIDA
+       86                                       PIC X(12).
+       87        01  WS-ACHOU-CONTA             PIC X(01).
+       88            88  WS-CONTA-ENCONTRADA              VALUE 'S'.
+       89            88  WS-CONTA-NAO-ENCONTRADA          VALUE 'N'.
+       90 
+       91       *--- AUTORIZACOES APROVADAS (PARA ACHAR A ORIGINAL NA REVERSAO) -*
+       92        01  WS-MAX-LOG                 PIC 9(04) VALUE 2000.
+       93        01  WS-QTD-LOG                 PIC 9(04) VALUE ZERO.
+       94        01  WS-TABELA-LOG.
+       95            05  WS-LOG-ITEM OCCURS 2000 TIMES INDEXED BY IX-LOG.
+       96                10  WS-LG-REGISTRO     PIC X(120).
+       97        01  WS-TABELA-APROVADAS.
+       98            05  WS-AP-ITEM OCCURS 2000 TIMES INDEXED BY IX-AP.
+       99                10  WS-AP-CARTAO       PIC X(16).
+      100                10  WS-AP-CODIGO       PIC X(06).
+      101                10  WS-AP-VALOR        PIC 9(09)V99.
+      102                10  WS-AP-POSICAO-LOG  PIC 9(04).
+      103                10  WS-AP-REVERTIDA    PIC X(01).
+      104        01  WS-QTD-AP                  PIC 9(04) VALUE ZERO.
+      105        01  WS-ACHOU-ORIGINAL          PIC X(01).
+      106            88  WS-ORIGINAL-ENCONTRADA           VALUE 'S'.
+      107            88  WS-ORIGINAL-NAO-ENCONTRADA       VALUE 'N'.
+      108 
+      109       *--- GERACAO DO CODIGO DE AUTORIZACAO (DE 38) -------------------*
+      110        01  WS-SEQ-AUTORIZACAO         PIC 9(05) VALUE ZERO.
+      111        01  WS-COD-GERADO.
+      112            05  FILLER                 PIC X(01) VALUE 'P'.
+      113            05  WS-COD-SEQ             PIC 9(05).
+      114 
+      115        01  WS-CONTADORES.
+      116            05  WS-QTD-LIDOS           PIC 9(07) VALUE ZERO.
+      117            05  WS-QTD-APROVADAS       PIC 9(07) VALUE ZERO.
+      118            05  WS-QTD-NEGADAS         PIC 9(07) VALUE ZERO.
+      119            05  WS-QTD-STANDIN         PIC 9(07) VALUE ZERO.
+      120            05  WS-QTD-REVERTIDAS      PIC 9(07) VALUE ZERO.
+      121            05  WS-QTD-REV-SEM-ORIG    PIC 9(07) VALUE ZERO.
+      122            05  WS-QTD-OUTROS          PIC 9(07) VALUE ZERO.
+      123        01  WS-QTD-POR-CODIGO.
+      124            05  WS-QTD-05              PIC 9(07) VALUE ZERO.
+      125            05  WS-QTD-14              PIC 9(07) VALUE ZERO.
+      126            05  WS-QTD-51              PIC 9(07) VALUE ZERO.
+      127            05  WS-QTD-54              PIC 9(07) VALUE ZERO.
+      128            05  WS-QTD-55              PIC 9(07) VALUE ZERO.
+      129            05  WS-QTD-57              PIC 9(07) VALUE ZERO.
+      130            05  WS-QTD-61              PIC 9(07) VALUE ZERO.
+      131 
+      132        PROCEDURE DIVISION.
+      133        0000-PRINCIPAL.
+      134            PERFORM 1000-INICIALIZAR THRU 1000-FIM-INICIALIZAR
+      135            PERFORM 2000-PROCESSAR   THRU 2000-FIM-PROCESSAR
+      136               UNTIL WS-FS-PED-FIM
+      137            PERFORM 3000-FINALIZAR   THRU 3000-FIM-FINALIZAR
+      138            STOP RUN.
+      139 
+      140        1000-INICIALIZAR.
+      141 
+      142            OPEN INPUT CONTAS-ENTRADA
+      143            IF NOT WS-FS-CON-OK
+      144               DISPLAY 'CICAUTOR - ERRO DE OPEN CONTAS FS: ' WS-FS-CONTAS
+      145               PERFORM 9900-ENCERRAR-COM-ERRO
+      146            END-IF
+      147            OPEN INPUT PEDIDOS
+      148            IF NOT WS-FS-PED-OK
+      149               DISPLAY 'CICAUTOR - ERRO DE OPEN PEDIDOS FS: '
+      150                       WS-FS-PEDIDO
+      151               PERFORM 9900-ENCERRAR-COM-ERRO
+      152            END-IF
+      153            OPEN OUTPUT LOG-AUTORIZ
+      154            IF NOT WS-FS-LOG-OK
+      155               DISPLAY 'CICAUTOR - ERRO DE OPEN LOGOUT FS: ' WS-FS-LOG
+      156               PERFORM 9900-ENCERRAR-COM-ERRO
+      157            END-IF
+      158            OPEN OUTPUT CONTAS-SAIDA
+      159            IF NOT WS-FS-COU-OK
+      160               DISPLAY 'CICAUTOR - ERRO DE OPEN CONTOUT FS: '
+      161                       WS-FS-CONTOUT
+      162               PERFORM 9900-ENCERRAR-COM-ERRO
+      163            END-IF
+      164 
+      165            PERFORM 1100-CARREGAR-CONTAS THRU 1100-FIM-CARREGAR-CONTAS
+      166            PERFORM 8000-LER-PEDIDO      THRU 8000-FIM-LER-PEDIDO
+      167            .
+      168        1000-FIM-INICIALIZAR.
+      169            EXIT.
+      170 
+      171        1100-CARREGAR-CONTAS.
+      172            PERFORM VARYING IX-CT FROM 1 BY 1 UNTIL IX-CT > WS-MAX-CONTAS
+      173               MOVE HIGH-VALUES TO WS-CT-CARTAO(IX-CT)
+      174            END-PERFORM
+      175            READ CONTAS-ENTRADA
+      176            PERFORM UNTIL WS-FS-CON-FIM
+      177               ADD 1 TO WS-QTD-CONTAS
+      178               IF WS-QTD-CONTAS > WS-MAX-CONTAS
+      179                  DISPLAY 'CICAUTOR - MAIS CONTAS QUE O LIMITE DA TABELA'
+      180                  PERFORM 9900-ENCERRAR-COM-ERRO
+      181               END-IF
+      182               MOVE CT-NUM-CARTAO    TO WS-CT-CARTAO(WS-QTD-CONTAS)
+      183               MOVE CT-STATUS        TO WS-CT-STATUS(WS-QTD-CONTAS)
+      184               MOVE CT-VALIDADE      TO WS-CT-VALIDADE(WS-QTD-CONTAS)
+      185               MOVE CT-LIMITE-DISP   TO WS-CT-DISP(WS-QTD-CONTAS)
+      186               MOVE CT-INTERNACIONAL TO WS-CT-EXTERIOR(WS-QTD-CONTAS)
+      187               MOVE CT-LIMITE-SAQUE  TO WS-CT-SAQUE(WS-QTD-CONTAS)
+      188               MOVE REG-CONTA        TO WS-CT-REGISTRO(WS-QTD-CONTAS)
+      189               READ CONTAS-ENTRADA
+      190            END-PERFORM
+      191            CLOSE CONTAS-ENTRADA
+      192            DISPLAY 'CICAUTOR - CONTAS CARREGADAS ..: ' WS-QTD-CONTAS
+      193            .
+      194        1100-FIM-CARREGAR-CONTAS.
+      195            EXIT.
+      196 
+      197        2000-PROCESSAR.
+      198       *    PREPARA O REGISTRO DE LOG COM OS DADOS DO PEDIDO
+      199            MOVE SPACES               TO REG-LOG-AUTORIZACAO
+      200            MOVE PD-MTI               TO LG-MTI-PEDIDO
+      201            MOVE PD-COD-PROCESSAMENTO TO LG-COD-PROCESSAMENTO
+      202            MOVE PD-NUM-CARTAO        TO LG-NUM-CARTAO
+      203            MOVE PD-VALOR             TO LG-VALOR
+      204            MOVE PD-DATA              TO LG-DATA
+      205            MOVE PD-HORA              TO LG-HORA
+      206            MOVE PD-STAN              TO LG-STAN
+      207            MOVE PD-MCC               TO LG-MCC
+      208            MOVE PD-MODO-ENTRADA      TO LG-MODO-ENTRADA
+      209            MOVE PD-PAIS              TO LG-PAIS
+      210            MOVE PD-ECI               TO LG-ECI
+      211            MOVE PD-RECORRENTE        TO LG-RECORRENTE
+      212            SET LG-PELO-EMISSOR       TO TRUE
+      213 
+      214            PERFORM 2100-LOCALIZAR-CONTA THRU 2100-FIM-LOCALIZAR-CONTA
+      215 
+      216            EVALUATE TRUE
+      217               WHEN PD-PEDIDO-DUPLA OR PD-PEDIDO-UNICA
+      218                  PERFORM 2200-DECIDIR      THRU 2200-FIM-DECIDIR
+      219               WHEN PD-AVISO-STANDIN
+      220                  PERFORM 2400-AVISO-STANDIN THRU 2400-FIM-AVISO-STANDIN
+      221               WHEN PD-REVERSAO OR PD-AVISO-REVERSAO
+      222                  PERFORM 2500-REVERTER     THRU 2500-FIM-REVERTER
+      223               WHEN OTHER
+      224                  ADD 1 TO WS-QTD-OUTROS
+      225                  MOVE '12'                 TO LG-RESPOSTA
+      226                  MOVE 'MENSAGEM NAO TRATADA' TO LG-DESC-RESPOSTA
+      227            END-EVALUATE
+      228 
+      229            PERFORM 7000-GUARDAR-LOG THRU 7000-FIM-GUARDAR-LOG
+      230            PERFORM 8000-LER-PEDIDO  THRU 8000-FIM-LER-PEDIDO
+      231            .
+      232        2000-FIM-PROCESSAR.
+      233            EXIT.
+      234 
+      235        2100-LOCALIZAR-CONTA.
+      236            SEARCH ALL WS-CT-ITEM
+      237               AT END
+      238                  SET WS-CONTA-NAO-ENCONTRADA TO TRUE
+      239               WHEN WS-CT-CARTAO(IX-CT) = PD-NUM-CARTAO
+      240                  SET WS-CONTA-ENCONTRADA     TO TRUE
+      241            END-SEARCH
+      242            .
+      243        2100-FIM-LOCALIZAR-CONTA.
+      244            EXIT.
+      245 
+      246        2200-DECIDIR.
+      247       *    RESPOSTA: 0110 PARA O 0100 E 0210 PARA O 0200
+      248            IF PD-PEDIDO-DUPLA
+      249               MOVE '0110' TO LG-MTI-RESPOSTA
+      250            ELSE
+      251               MOVE '0210' TO LG-MTI-RESPOSTA
+      252            END-IF
+      253 
+      254            EVALUATE TRUE
+      255 
+      256               WHEN WS-CONTA-NAO-ENCONTRADA
+      257                  MOVE '14' TO LG-RESPOSTA
+      258                  MOVE 'CARTAO INEXISTENTE'
+      259                     TO LG-DESC-RESPOSTA
+      260                  ADD 1 TO WS-QTD-14
+      261 
+      262               WHEN WS-CT-STATUS(IX-CT) NOT = 'A'
+      263                  MOVE '05' TO LG-RESPOSTA
+      264                  MOVE 'CONTA BLOQUEADA'
+      265                     TO LG-DESC-RESPOSTA
+      266                  ADD 1 TO WS-QTD-05
+      267 
+      268               WHEN WS-CT-VALIDADE(IX-CT) < PD-ANO-MES
+      269                  MOVE '54' TO LG-RESPOSTA
+      270                  MOVE 'CARTAO VENCIDO'
+      271                     TO LG-DESC-RESPOSTA
+      272                  ADD 1 TO WS-QTD-54
+      273 
+      274               WHEN PD-CODIGO-NAO-CONFERE
+      275                  MOVE '05' TO LG-RESPOSTA
+      276                  MOVE 'CODIGO DE SEGURANCA INVALIDO'
+      277                     TO LG-DESC-RESPOSTA
+      278                  ADD 1 TO WS-QTD-05
+      279 
+      280               WHEN PD-SENHA-NAO-CONFERE
+      281                  MOVE '55' TO LG-RESPOSTA
+      282                  MOVE 'SENHA INCORRETA'
+      283                     TO LG-DESC-RESPOSTA
+      284                  ADD 1 TO WS-QTD-55
+      285 
+      286               WHEN NOT PD-NACIONAL
+      287                AND WS-CT-EXTERIOR(IX-CT) NOT = 'S'
+      288                  MOVE '57' TO LG-RESPOSTA
+      289                  MOVE 'EXTERIOR SEM HABILITACAO'
+      290                     TO LG-DESC-RESPOSTA
+      291                  ADD 1 TO WS-QTD-57
+      292 
+      293               WHEN PD-SAQUE
+      294                AND PD-VALOR > WS-CT-SAQUE(IX-CT)
+      295                  MOVE '61' TO LG-RESPOSTA
+      296                  MOVE 'LIMITE DE SAQUE EXCEDIDO'
+      297                     TO LG-DESC-RESPOSTA
+      298                  ADD 1 TO WS-QTD-61
+      299 
+      300               WHEN PD-VALOR > WS-CT-DISP(IX-CT)
+      301                  MOVE '51' TO LG-RESPOSTA
+      302                  MOVE 'LIMITE INSUFICIENTE'
+      303                     TO LG-DESC-RESPOSTA
+      304                  ADD 1 TO WS-QTD-51
+      305 
+      306               WHEN OTHER
+      307                  PERFORM 2300-APROVAR
+      308                     THRU 2300-FIM-APROVAR
+      309 
+      310            END-EVALUATE
+      311 
+      312            IF NOT LG-APROVADA
+      313               ADD 1 TO WS-QTD-NEGADAS
+      314            END-IF
+      315            .
+      316        2200-FIM-DECIDIR.
+      317            EXIT.
+      318 
+      319        2300-APROVAR.
+      320            ADD 1                     TO WS-SEQ-AUTORIZACAO
+      321            MOVE WS-SEQ-AUTORIZACAO   TO WS-COD-SEQ
+      322            MOVE WS-COD-GERADO        TO LG-COD-AUTORIZACAO
+      323            MOVE '00'                 TO LG-RESPOSTA
+      324            MOVE 'APROVADA'           TO LG-DESC-RESPOSTA
+      325            SUBTRACT PD-VALOR       FROM WS-CT-DISP(IX-CT)
+      326            ADD 1                     TO WS-QTD-APROVADAS
+      327            PERFORM 2350-REGISTRAR-APROVADA
+      328               THRU 2350-FIM-REGISTRAR-APROVADA
+      329            .
+      330        2300-FIM-APROVAR.
+      331            EXIT.
+      332 
+      333        2350-REGISTRAR-APROVADA.
+      334       *    GUARDA A APROVADA PARA UMA EVENTUAL REVERSAO. A POSICAO NO
+      335       *    LOG E A PROXIMA, PORQUE O LOG DESTE PEDIDO AINDA VAI SER
+      336       *    GUARDADO NO 7000
+      337            ADD 1 TO WS-QTD-AP
+      338            IF WS-QTD-AP > WS-MAX-LOG
+      339               DISPLAY 'CICAUTOR - MAIS APROVADAS QUE O LIMITE'
+      340               PERFORM 9900-ENCERRAR-COM-ERRO
+      341            END-IF
+      342            MOVE PD-NUM-CARTAO      TO WS-AP-CARTAO(WS-QTD-AP)
+      343            MOVE LG-COD-AUTORIZACAO TO WS-AP-CODIGO(WS-QTD-AP)
+      344            MOVE PD-VALOR           TO WS-AP-VALOR(WS-QTD-AP)
+      345            COMPUTE WS-AP-POSICAO-LOG(WS-QTD-AP) = WS-QTD-LOG + 1
+      346            MOVE 'N'                TO WS-AP-REVERTIDA(WS-QTD-AP)
+      347            .
+      348        2350-FIM-REGISTRAR-APROVADA.
+      349            EXIT.
+      350 
+      351        2400-AVISO-STANDIN.
+      352       *    O EMISSOR NAO RESPONDEU A TEMPO: A BANDEIRA DECIDIU COM OS
+      353       *    PARAMETROS DE STAND-IN E AVISA AGORA. O EMISSOR NAO DECIDE
+      354       *    DE NOVO: REGISTRA A DECISAO, ATUALIZA O LIMITE SE FOI
+      355       *    APROVADA E CONFIRMA O RECEBIMENTO (0130)
+      356            ADD 1 TO WS-QTD-STANDIN
+      357            MOVE '0130'               TO LG-MTI-RESPOSTA
+      358            SET LG-EM-STAND-IN        TO TRUE
+      359            MOVE PD-RESPOSTA-STANDIN  TO LG-RESPOSTA
+      360            MOVE PD-COD-AUT-ORIGINAL  TO LG-COD-AUTORIZACAO
+      361            IF LG-APROVADA
+      362               MOVE 'APROVADA EM STAND-IN' TO LG-DESC-RESPOSTA
+      363               IF WS-CONTA-ENCONTRADA
+      364                  SUBTRACT PD-VALOR FROM WS-CT-DISP(IX-CT)
+      365               END-IF
+      366               PERFORM 2350-REGISTRAR-APROVADA
+      367                  THRU 2350-FIM-REGISTRAR-APROVADA
+      368            ELSE
+      369               MOVE 'NEGADA EM STAND-IN'   TO LG-DESC-RESPOSTA
+      370            END-IF
+      371            .
+      372        2400-FIM-AVISO-STANDIN.
+      373            EXIT.
+      374 
+      375        2500-REVERTER.
+      376            IF PD-REVERSAO
+      377               MOVE '0410' TO LG-MTI-RESPOSTA
+      378            ELSE
+      379               MOVE '0430' TO LG-MTI-RESPOSTA
+      380            END-IF
+      381            MOVE PD-COD-AUT-ORIGINAL TO LG-COD-AUTORIZACAO
+      382       *    A ESCREVER (MAO NA MASSA): PROCURAR NA WS-TABELA-APROVADAS A
+      383       *    AUTORIZACAO ORIGINAL (MESMO CARTAO, MESMO CODIGO, AINDA NAO
+      384       *    REVERTIDA). SE ACHOU: MARCAR WS-AP-REVERTIDA, DEVOLVER O VALO
+      385       *    AO DISPONIVEL DA CONTA, MARCAR 'R' NA POSICAO 83 DO LOG GUARD
+      386       *    (WS-LG-REGISTRO(IX-LOG)(83:1)) E RESPONDER '00'.
+      387       *    SE NAO ACHOU: RESPONDER '25' (ORIGINAL NAO ENCONTRADA).
+      388            MOVE '25' TO LG-RESPOSTA
+      389            MOVE 'ORIGINAL NAO ENCONTRADA' TO LG-DESC-RESPOSTA
+      390            ADD 1 TO WS-QTD-REV-SEM-ORIG
+      391            .
+      392        2500-FIM-REVERTER.
+      393            EXIT.
+      394 
+      395        3000-FINALIZAR.
+      396       *    GRAVA O LOG COMPLETO E AS CONTAS COM OS LIMITES ATUALIZADOS
+      397            PERFORM VARYING IX-LOG FROM 1 BY 1 UNTIL IX-LOG > WS-QTD-LOG
+      398               WRITE REG-LOG-AUTORIZACAO FROM WS-LG-REGISTRO(IX-LOG)
+      399               IF NOT WS-FS-LOG-OK
+      400                  DISPLAY 'CICAUTOR - ERRO DE WRITE NO LOGOUT FS: '
+      401                          WS-FS-LOG
+      402                  PERFORM 9900-ENCERRAR-COM-ERRO
+      403               END-IF
+      404            END-PERFORM
+      405            PERFORM VARYING IX-CT FROM 1 BY 1
+      406                    UNTIL IX-CT > WS-QTD-CONTAS
+      407       *       O DISPONIVEL FICA NAS POSICOES 38 A 49 DO CPCONTA
+      408               MOVE WS-CT-REGISTRO(IX-CT) TO REG-CONTA-SAIDA
+      409               MOVE WS-CT-DISP(IX-CT)     TO WS-DISP-SAIDA
+      410               MOVE WS-DISP-SAIDA-X       TO REG-CONTA-SAIDA(38:12)
+      411               WRITE REG-CONTA-SAIDA
+      412               IF NOT WS-FS-COU-OK
+      413                  DISPLAY 'CICAUTOR - ERRO DE WRITE NO CONTOUT FS: '
+      414                          WS-FS-CONTOUT
+      415                  PERFORM 9900-ENCERRAR-COM-ERRO
+      416               END-IF
+      417            END-PERFORM
+      418            CLOSE PEDIDOS LOG-AUTORIZ CONTAS-SAIDA
+      419 
+      420            DISPLAY 'CICAUTOR - PEDIDOS LIDOS ......: ' WS-QTD-LIDOS
+      421            DISPLAY 'CICAUTOR - APROVADAS (00) .....: ' WS-QTD-APROVADAS
+      422            DISPLAY 'CICAUTOR - NEGADAS ............: ' WS-QTD-NEGADAS
+      423            DISPLAY 'CICAUTOR -   05 NAO AUTORIZADA : ' WS-QTD-05
+      424            DISPLAY 'CICAUTOR -   14 CARTAO INVALIDO: ' WS-QTD-14
+      425            DISPLAY 'CICAUTOR -   51 SEM LIMITE ....: ' WS-QTD-51
+      426            DISPLAY 'CICAUTOR -   54 VENCIDO .......: ' WS-QTD-54
+      427            DISPLAY 'CICAUTOR -   55 SENHA .........: ' WS-QTD-55
+      428            DISPLAY 'CICAUTOR -   57 NAO PERMITIDA .: ' WS-QTD-57
+      429            DISPLAY 'CICAUTOR -   61 LIMITE SAQUE ..: ' WS-QTD-61
+      430            DISPLAY 'CICAUTOR - AVISOS DE STAND-IN .: ' WS-QTD-STANDIN
+      431            DISPLAY 'CICAUTOR - REVERSOES EFETUADAS : ' WS-QTD-REVERTIDAS
+      432            DISPLAY 'CICAUTOR - REVERSOES SEM ORIG. : '
+      433                    WS-QTD-REV-SEM-ORIG
+      434            DISPLAY 'CICAUTOR - REGISTROS NO LOG ...: ' WS-QTD-LOG
+      435       *    CONFERENCIA: CADA PEDIDO GERA UM REGISTRO NO LOG
+      436            IF WS-QTD-LIDOS NOT = WS-QTD-LOG
+      437               DISPLAY 'CICAUTOR - CONTADORES NAO FECHAM'
+      438               MOVE 16 TO RETURN-CODE
+      439            ELSE
+      440               MOVE 0 TO RETURN-CODE
+      441            END-IF
+      442            .
+      443        3000-FIM-FINALIZAR.
+      444            EXIT.
+      445 
+      446        7000-GUARDAR-LOG.
+      447            ADD 1 TO WS-QTD-LOG
+      448            IF WS-QTD-LOG > WS-MAX-LOG
+      449               DISPLAY 'CICAUTOR - MAIS PEDIDOS QUE O LIMITE DO LOG'
+      450               PERFORM 9900-ENCERRAR-COM-ERRO
+      451            END-IF
+      452            MOVE REG-LOG-AUTORIZACAO TO WS-LG-REGISTRO(WS-QTD-LOG)
+      453            .
+      454        7000-FIM-GUARDAR-LOG.
+      455            EXIT.
+      456 
+      457        8000-LER-PEDIDO.
+      458            READ PEDIDOS
+      459                 AT END
+      460                    CONTINUE
+      461                 NOT AT END
+      462                    ADD 1 TO WS-QTD-LIDOS
+      463            END-READ
+      464            IF NOT WS-FS-PED-OK AND NOT WS-FS-PED-FIM
+      465               DISPLAY 'CICAUTOR - ERRO DE READ PEDIDOS FS: '
+      466                       WS-FS-PEDIDO
+      467               PERFORM 9900-ENCERRAR-COM-ERRO
+      468            END-IF
+      469            .
+      470        8000-FIM-LER-PEDIDO.
+      471            EXIT.
+      472 
+      473        9900-ENCERRAR-COM-ERRO.
+      474       *    ENCERRA COM RC 16 PARA IMPEDIR OS STEPS SEGUINTES
+      475            MOVE 16 TO RETURN-CODE
+      476            STOP RUN
+      477            .
