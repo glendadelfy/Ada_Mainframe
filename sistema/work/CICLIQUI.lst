@@ -1,0 +1,491 @@
+GnuCOBOL 3.3-dev.0      sistema\work\CICLIQU Wed Nov 18 2026 22:02:37  Page 0001
+
+LINE    PG/LN  A...B............................................................
+
+000001        *================================================================*
+000002        * PROGRAMA : CICLIQUI (ESQUELETO DA TURMA)                       *
+000003        * AULA     : 3 - CLEARING E SETTLEMENT (DESAFIO)                 *
+000004        * OBJETIVO : CALCULAR A LIQUIDACAO DO EMISSOR COM CADA BANDEIRA: *
+000005        *            - INTERCAMBIO DE CADA TRANSACAO PELA TAXA DO IRD    *
+000006        *              (RECEITA DO EMISSOR);                             *
+000007        *            - TARIFA DE BANDEIRA (CUSTO DO EMISSOR);            *
+000008        *            - POSICAO A PAGAR = VALOR BRUTO - INTERCAMBIO       *
+000009        *              + TARIFA, POR BANDEIRA (QUEBRA DE CONTROLE).      *
+000010        *            CONFERE O TETO REGULATORIO DO INTERCAMBIO DO DEBITO *
+000011        *            (0,50%) E DO PRE-PAGO (0,70%): TAXA ACIMA DO TETO E *
+000012        *            LIMITADA AO TETO E GERA ALERTA.                     *
+000013        * ENTRADAS : DD LANCIN   - CPLANC, FB 120, ORDENADO POR BANDEIRA *
+000014        *                          E IRD                                 *
+000015        *            DD IRDTAB   - CPIRD, FB 80, ORDENADA POR BANDEIRA E *
+000016        *                          IRD                                   *
+000017        * SAIDA    : DD LIQUIOUT - RELATORIO, FBA 133                    *
+000018        * RETORNO  : 0 = OK, 4 = HOUVE ALERTA DE TETO,                   *
+000019        *            8 = IRD NAO CADASTRADO, 16 = ERRO DE ARQUIVO        *
+000020        * A ESCREVER NA AULA 3:                                          *
+000021        * DESAFIO DO FIM DE SEMANA: 2000-PROCESSAR (QUEBRA),             *
+000022        * 2100-CALCULAR E 2200-CONFERIR-TETO                             *
+000023        *================================================================*
+000024         IDENTIFICATION DIVISION.
+000025         PROGRAM-ID. CICLIQUI.
+000026
+000027         ENVIRONMENT DIVISION.
+000028         INPUT-OUTPUT SECTION.
+000029         FILE-CONTROL.
+000030             SELECT LANCAMENTOS ASSIGN TO LANCIN
+000031                    FILE STATUS IS WS-FS-LANCAMENTO.
+000032             SELECT TABELA-IRD  ASSIGN TO IRDTAB
+000033                    FILE STATUS IS WS-FS-IRD.
+000034             SELECT RELATORIO   ASSIGN TO LIQUIOUT
+000035                    FILE STATUS IS WS-FS-RELATORIO.
+000036
+000037         DATA DIVISION.
+000038         FILE SECTION.
+000039         FD  LANCAMENTOS
+000040             RECORDING MODE IS F.
+000041             COPY CPLANC.
+000001C       *================================================================*
+000002C       * CPLANC   - LANCAMENTO: APRESENTACAO JA CASADA COM A            *
+000003C       *            AUTORIZACAO E LANCADA NA CONTA DO PORTADOR          *
+000004C       * LRECL 120, RECFM FB. GRAVADO PELO CICCLEAR.                    *
+000005C       *================================================================*
+000006C        01  REG-LANCAMENTO.
+000007C            05  LC-NUM-CARTAO          PIC X(16).
+000008C            05  LC-COD-AUTORIZACAO     PIC X(06).
+000009C            05  LC-RRN                 PIC X(12).
+000010C            05  LC-DATA-COMPRA         PIC 9(08).
+000011C            05  LC-VALOR               PIC 9(09)V99.
+GnuCOBOL 3.3-dev.0      sistema\work\CICLIQU Wed Nov 18 2026 22:02:37  Page 0002
+
+LINE    PG/LN  A...B............................................................
+
+000012C            05  LC-VALOR-AUTORIZADO    PIC 9(09)V99.
+000013C            05  LC-MCC                 PIC 9(04).
+000014C            05  LC-PAIS                PIC X(03).
+000015C            05  LC-MODO-ENTRADA        PIC X(02).
+000016C            05  LC-ECI                 PIC X(02).
+000017C            05  LC-RECORRENTE          PIC X(01).
+000018C            05  LC-PRODUTO             PIC X(01).
+000019C            05  LC-IRD                 PIC X(02).
+000020C            05  LC-BANDEIRA            PIC X(01).
+000021C            05  LC-ESTABELECIMENTO     PIC X(10).
+000022C            05  LC-DATA-PROCESSAMENTO  PIC 9(08).
+000023C       *    RESULTADO DO CASAMENTO COM A AUTORIZACAO
+000024C            05  LC-SITUACAO            PIC X(01).
+000025C                88  LC-CASADA                    VALUE ' '.
+000026C                88  LC-DIFERENCA-ACEITA          VALUE 'D'.
+000027C                88  LC-SEM-AUTORIZACAO           VALUE 'S'.
+000028C                88  LC-DUPLICADA                 VALUE 'P'.
+000029C            05  LC-TARDIA              PIC X(01).
+000030C                88  LC-APRESENTACAO-TARDIA       VALUE 'S'.
+000031C            05  FILLER                 PIC X(20).
+000042         FD  TABELA-IRD
+000043             RECORDING MODE IS F.
+000044             COPY CPIRD.
+000001C       *================================================================*
+000002C       * CPIRD    - TABELA DE TAXAS DE INTERCAMBIO POR IRD, RECEBIDA    *
+000003C       *            DAS BANDEIRAS                                       *
+000004C       * LRECL 80, RECFM FB. ORDENADA POR BANDEIRA E IRD.               *
+000005C       * TAXAS EM PERCENTUAL COM 4 DECIMAIS (14000 = 1,4000%).          *
+000006C       *================================================================*
+000007C        01  REG-IRD.
+000008C            05  IR-BANDEIRA            PIC X(01).
+000009C            05  IR-CODIGO              PIC X(02).
+000010C            05  IR-PRODUTO             PIC X(01).
+000011C            05  IR-DESCRICAO           PIC X(30).
+000012C            05  IR-TAXA-INTERCAMBIO    PIC 9(01)V9(04).
+000013C            05  IR-TARIFA-BANDEIRA     PIC 9(01)V9(04).
+000014C            05  FILLER                 PIC X(36).
+000045         FD  RELATORIO
+000046             RECORDING MODE IS F.
+000047         01  REG-RELATORIO              PIC X(132).
+000048
+000049         WORKING-STORAGE SECTION.
+000050         01  WS-FS-LANCAMENTO           PIC X(02).
+000051             88  WS-FS-LAN-OK                     VALUE '00'.
+000052             88  WS-FS-LAN-FIM                    VALUE '10'.
+000053         01  WS-FS-IRD                  PIC X(02).
+000054             88  WS-FS-IRD-OK                     VALUE '00'.
+000055             88  WS-FS-IRD-FIM                    VALUE '10'.
+000056         01  WS-FS-RELATORIO            PIC X(02).
+000057             88  WS-FS-REL-OK                     VALUE '00'.
+000058
+000059        *--- TABELA DE IRD EM MEMORIA (SEARCH ALL PELA CHAVE) -----------*
+GnuCOBOL 3.3-dev.0      sistema\work\CICLIQU Wed Nov 18 2026 22:02:37  Page 0003
+
+LINE    PG/LN  A...B............................................................
+
+000060         01  WS-MAX-IRD                 PIC 9(03) VALUE 100.
+000061         01  WS-QTD-IRD                 PIC 9(03) VALUE ZERO.
+000062         01  WS-TABELA-IRD.
+000063             05  WS-IRD-ITEM OCCURS 100 TIMES
+000064                             ASCENDING KEY IS WS-IRD-CHAVE
+000065                             INDEXED BY IX-IRD.
+000066                 10  WS-IRD-CHAVE.
+000067                     15  WS-IRD-BANDEIRA PIC X(01).
+000068                     15  WS-IRD-CODIGO   PIC X(02).
+000069                 10  WS-IRD-PRODUTO     PIC X(01).
+000070                 10  WS-IRD-DESCRICAO   PIC X(30).
+000071                 10  WS-IRD-TAXA        PIC 9(01)V9(04).
+000072                 10  WS-IRD-TARIFA      PIC 9(01)V9(04).
+000073         01  WS-CHAVE-PROCURADA.
+000074             05  WS-CP-BANDEIRA         PIC X(01).
+000075             05  WS-CP-CODIGO           PIC X(02).
+000076         01  WS-ACHOU-IRD               PIC X(01).
+000077             88  WS-IRD-ENCONTRADO                VALUE 'S'.
+000078             88  WS-IRD-NAO-ENCONTRADO            VALUE 'N'.
+000079
+000080        *--- TETOS REGULATORIOS DO INTERCAMBIO (RESOLUCAO BCB 246/2022) -*
+000081         01  WS-TETO-DEBITO             PIC 9(01)V9(04) VALUE 0.5000.
+000082         01  WS-TETO-PRE-PAGO           PIC 9(01)V9(04) VALUE 0.7000.
+000083         01  WS-TAXA-APLICADA           PIC 9(01)V9(04).
+000084         01  WS-ACIMA-TETO              PIC X(01).
+000085             88  WS-TAXA-ACIMA-DO-TETO            VALUE 'S'.
+000086
+000087        *--- VALORES DE UMA TRANSACAO ----------------------------------*
+000088         01  WS-VL-INTERCAMBIO          PIC 9(09)V99 VALUE ZERO.
+000089         01  WS-VL-TARIFA               PIC 9(09)V99 VALUE ZERO.
+000090
+000091        *--- QUEBRA DE CONTROLE: BANDEIRA (MAIOR) E IRD (MENOR) ---------*
+000092         01  WS-BANDEIRA-ANTERIOR       PIC X(01).
+000093         01  WS-IRD-ANTERIOR            PIC X(02).
+000094         01  WS-ACUM-IRD.
+000095             05  WS-AI-QTD              PIC 9(07).
+000096             05  WS-AI-BRUTO            PIC 9(11)V99.
+000097             05  WS-AI-INTERCAMBIO      PIC 9(11)V99.
+000098             05  WS-AI-TARIFA           PIC 9(11)V99.
+000099             05  WS-AI-ALERTA           PIC X(01).
+000100             05  WS-AI-DESCRICAO        PIC X(30).
+000101             05  WS-AI-TAXA             PIC 9(01)V9(04).
+000102         01  WS-ACUM-BANDEIRA.
+000103             05  WS-AB-QTD              PIC 9(07).
+000104             05  WS-AB-BRUTO            PIC 9(11)V99.
+000105             05  WS-AB-INTERCAMBIO      PIC 9(11)V99.
+000106             05  WS-AB-TARIFA           PIC 9(11)V99.
+000107         01  WS-ACUM-GERAL.
+000108             05  WS-AG-QTD              PIC 9(07)    VALUE ZERO.
+000109             05  WS-AG-BRUTO            PIC 9(11)V99 VALUE ZERO.
+000110             05  WS-AG-INTERCAMBIO      PIC 9(11)V99 VALUE ZERO.
+000111             05  WS-AG-TARIFA           PIC 9(11)V99 VALUE ZERO.
+GnuCOBOL 3.3-dev.0      sistema\work\CICLIQU Wed Nov 18 2026 22:02:37  Page 0004
+
+LINE    PG/LN  A...B............................................................
+
+000112         01  WS-POSICAO                 PIC S9(11)V99.
+000113
+000114         01  WS-CONTADORES.
+000115             05  WS-QTD-LIDOS           PIC 9(07) VALUE ZERO.
+000116             05  WS-QTD-SEM-IRD         PIC 9(07) VALUE ZERO.
+000117             05  WS-QTD-ACIMA-TETO      PIC 9(07) VALUE ZERO.
+000118
+000119        *--- LINHAS DO RELATORIO ----------------------------------------*
+000120         01  WS-CAB-1.
+000121             05  FILLER                 PIC X(60) VALUE
+000122                 'CICLO DO CARTAO - LIQUIDACAO DO EMISSOR POR BANDEIRA'.
+000123             05  FILLER                 PIC X(20) VALUE
+000124                 '(DADOS FICTICIOS)'.
+000125         01  WS-CAB-2.
+000126             05  FILLER                 PIC X(05) VALUE 'IRD'.
+000127             05  FILLER                 PIC X(32) VALUE 'DESCRICAO'.
+000128             05  FILLER                 PIC X(09) VALUE '  TAXA %'.
+000129             05  FILLER                 PIC X(07) VALUE '    QTD'.
+000130             05  FILLER                 PIC X(18) VALUE
+000131                 '      VALOR BRUTO'.
+000132             05  FILLER                 PIC X(16) VALUE
+000133                 '     INTERCAMBIO'.
+000134             05  FILLER                 PIC X(16) VALUE
+000135                 '    TARIFA BAND.'.
+000136             05  FILLER                 PIC X(20) VALUE '  OBS'.
+000137         01  WS-CAB-BANDEIRA.
+000138             05  FILLER                 PIC X(10) VALUE 'BANDEIRA '.
+000139             05  CBB-BANDEIRA           PIC X(01).
+000140         01  WS-LINHA-IRD.
+000141             05  LI-IRD                 PIC X(02).
+000142             05  FILLER                 PIC X(03) VALUE SPACES.
+000143             05  LI-DESCRICAO           PIC X(30).
+000144             05  FILLER                 PIC X(02) VALUE SPACES.
+000145             05  LI-TAXA                PIC 9.9999.
+000146             05  FILLER                 PIC X(02) VALUE SPACES.
+000147             05  LI-QTD                 PIC ZZ,ZZ9.
+000148             05  FILLER                 PIC X(02) VALUE SPACES.
+000149             05  LI-BRUTO               PIC ZZ,ZZZ,ZZZ,ZZ9.99.
+000150             05  FILLER                 PIC X(02) VALUE SPACES.
+000151             05  LI-INTERCAMBIO         PIC ZZZ,ZZZ,ZZ9.99.
+000152             05  FILLER                 PIC X(02) VALUE SPACES.
+000153             05  LI-TARIFA              PIC ZZZ,ZZZ,ZZ9.99.
+000154             05  FILLER                 PIC X(02) VALUE SPACES.
+000155             05  LI-OBS                 PIC X(20).
+000156         01  WS-LINHA-TOTAL.
+000157             05  LT-DESCRICAO           PIC X(46).
+000158             05  LT-QTD                 PIC ZZ,ZZ9.
+000159             05  FILLER                 PIC X(02) VALUE SPACES.
+000160             05  LT-BRUTO               PIC ZZ,ZZZ,ZZZ,ZZ9.99.
+000161             05  FILLER                 PIC X(02) VALUE SPACES.
+000162             05  LT-INTERCAMBIO         PIC ZZZ,ZZZ,ZZ9.99.
+000163             05  FILLER                 PIC X(02) VALUE SPACES.
+GnuCOBOL 3.3-dev.0      sistema\work\CICLIQU Wed Nov 18 2026 22:02:37  Page 0005
+
+LINE    PG/LN  A...B............................................................
+
+000164             05  LT-TARIFA              PIC ZZZ,ZZZ,ZZ9.99.
+000165         01  WS-LINHA-POSICAO.
+000166             05  LP-DESCRICAO           PIC X(46).
+000167             05  FILLER                 PIC X(08) VALUE SPACES.
+000168             05  LP-VALOR               PIC ZZ,ZZZ,ZZZ,ZZ9.99-.
+000169         01  WS-LINHA-ERRO.
+000170             05  FILLER                 PIC X(30) VALUE
+000171                 'IRD NAO CADASTRADO: BANDEIRA '.
+000172             05  LE-BANDEIRA            PIC X(01).
+000173             05  FILLER                 PIC X(06) VALUE ' IRD '.
+000174             05  LE-IRD                 PIC X(02).
+000175             05  FILLER                 PIC X(08) VALUE ' RRN '.
+000176             05  LE-RRN                 PIC X(12).
+000177
+000178         PROCEDURE DIVISION.
+000179         0000-PRINCIPAL.
+000180             PERFORM 1000-INICIALIZAR THRU 1000-FIM-INICIALIZAR
+000181             PERFORM 2000-PROCESSAR   THRU 2000-FIM-PROCESSAR
+000182                UNTIL WS-FS-LAN-FIM
+000183             PERFORM 3000-FINALIZAR   THRU 3000-FIM-FINALIZAR
+000184             STOP RUN.
+000185
+000186         1000-INICIALIZAR.
+000187
+000188             OPEN INPUT TABELA-IRD
+000189             IF NOT WS-FS-IRD-OK
+000190                DISPLAY 'CICLIQUI - ERRO DE OPEN IRDTAB FS: ' WS-FS-IRD
+000191                PERFORM 9900-ENCERRAR-COM-ERRO
+000192             END-IF
+000193             OPEN INPUT LANCAMENTOS
+000194             IF NOT WS-FS-LAN-OK
+000195                DISPLAY 'CICLIQUI - ERRO DE OPEN LANCIN FS: '
+000196                        WS-FS-LANCAMENTO
+000197                PERFORM 9900-ENCERRAR-COM-ERRO
+000198             END-IF
+000199             OPEN OUTPUT RELATORIO
+000200             IF NOT WS-FS-REL-OK
+000201                DISPLAY 'CICLIQUI - ERRO DE OPEN LIQUIOUT FS: '
+000202                        WS-FS-RELATORIO
+000203                PERFORM 9900-ENCERRAR-COM-ERRO
+000204             END-IF
+000205
+000206             PERFORM 1100-CARREGAR-IRD THRU 1100-FIM-CARREGAR-IRD
+000207
+000208             WRITE REG-RELATORIO FROM WS-CAB-1 AFTER ADVANCING PAGE
+000209             WRITE REG-RELATORIO FROM WS-CAB-2 AFTER ADVANCING 2 LINES
+000210
+000211             PERFORM 8000-LER-LANCAMENTO THRU 8000-FIM-LER-LANCAMENTO
+000212             IF NOT WS-FS-LAN-FIM
+000213                PERFORM 2800-INICIAR-BANDEIRA
+000214                   THRU 2800-FIM-INICIAR-BANDEIRA
+000215             END-IF
+GnuCOBOL 3.3-dev.0      sistema\work\CICLIQU Wed Nov 18 2026 22:02:37  Page 0006
+
+LINE    PG/LN  A...B............................................................
+
+000216             .
+000217         1000-FIM-INICIALIZAR.
+000218             EXIT.
+000219
+000220         1100-CARREGAR-IRD.
+000221             PERFORM VARYING IX-IRD FROM 1 BY 1 UNTIL IX-IRD > WS-MAX-IRD
+000222                MOVE HIGH-VALUES TO WS-IRD-CHAVE(IX-IRD)
+000223             END-PERFORM
+000224             READ TABELA-IRD
+000225             PERFORM UNTIL WS-FS-IRD-FIM
+000226                ADD 1 TO WS-QTD-IRD
+000227                IF WS-QTD-IRD > WS-MAX-IRD
+000228                   DISPLAY 'CICLIQUI - TABELA DE IRD MAIOR QUE O LIMITE'
+000229                   PERFORM 9900-ENCERRAR-COM-ERRO
+000230                END-IF
+000231                MOVE IR-BANDEIRA         TO WS-IRD-BANDEIRA(WS-QTD-IRD)
+000232                MOVE IR-CODIGO           TO WS-IRD-CODIGO(WS-QTD-IRD)
+000233                MOVE IR-PRODUTO          TO WS-IRD-PRODUTO(WS-QTD-IRD)
+000234                MOVE IR-DESCRICAO        TO WS-IRD-DESCRICAO(WS-QTD-IRD)
+000235                MOVE IR-TAXA-INTERCAMBIO TO WS-IRD-TAXA(WS-QTD-IRD)
+000236                MOVE IR-TARIFA-BANDEIRA  TO WS-IRD-TARIFA(WS-QTD-IRD)
+000237                READ TABELA-IRD
+000238             END-PERFORM
+000239             CLOSE TABELA-IRD
+000240             DISPLAY 'CICLIQUI - IRDS CARREGADOS ....: ' WS-QTD-IRD
+000241             .
+000242         1100-FIM-CARREGAR-IRD.
+000243             EXIT.
+000244
+000245         2000-PROCESSAR.
+000246        *    A ESCREVER (DESAFIO): A QUEBRA DE CONTROLE. MUDOU A BANDEIRA:
+000247        *    FECHAR O IRD (2600), FECHAR A BANDEIRA (2700) E INICIAR A NOV
+000248        *    (2800). MUDOU SO O IRD: FECHAR O IRD (2600) E INICIAR O NOVO
+000249        *    (2900).
+000250             PERFORM 2100-CALCULAR THRU 2100-FIM-CALCULAR
+000251             PERFORM 8000-LER-LANCAMENTO THRU 8000-FIM-LER-LANCAMENTO
+000252             .
+000253         2000-FIM-PROCESSAR.
+000254             EXIT.
+000255
+000256         2100-CALCULAR.
+000257        *    A ESCREVER (DESAFIO): PROCURAR O IRD DO LANCAMENTO NA TABELA
+000258        *    (SEARCH ALL PELA CHAVE BANDEIRA + IRD). NAO ACHOU: CONTAR E
+000259        *    IMPRIMIR WS-LINHA-ERRO. ACHOU: 2200-CONFERIR-TETO, CALCULAR O
+000260        *    INTERCAMBIO (TAXA APLICADA) E A TARIFA COM ROUNDED E SOMAR NO
+000261        *    ACUMULADORES DO IRD (WS-AI-...).
+000262             CONTINUE
+000263             .
+000264         2100-FIM-CALCULAR.
+000265             EXIT.
+000266
+000267         2200-CONFERIR-TETO.
+GnuCOBOL 3.3-dev.0      sistema\work\CICLIQU Wed Nov 18 2026 22:02:37  Page 0007
+
+LINE    PG/LN  A...B............................................................
+
+000268        *    A ESCREVER (DESAFIO): NO DEBITO (PRODUTO D) O TETO E 0,50% E
+000269        *    PRE-PAGO (P), 0,70%. TAXA DA TABELA ACIMA DO TETO: APLICAR O
+000270        *    TETO, CONTAR (WS-QTD-ACIMA-TETO) E MARCAR WS-AI-ALERTA = 'S'.
+000271             MOVE WS-IRD-TAXA(IX-IRD) TO WS-TAXA-APLICADA
+000272             .
+000273         2200-FIM-CONFERIR-TETO.
+000274             EXIT.
+000275
+000276         2600-FECHAR-IRD.
+000277             IF WS-AI-QTD > ZERO
+000278                MOVE WS-IRD-ANTERIOR      TO LI-IRD
+000279                MOVE WS-AI-DESCRICAO      TO LI-DESCRICAO
+000280                MOVE WS-AI-TAXA           TO LI-TAXA
+000281                MOVE WS-AI-QTD            TO LI-QTD
+000282                MOVE WS-AI-BRUTO          TO LI-BRUTO
+000283                MOVE WS-AI-INTERCAMBIO    TO LI-INTERCAMBIO
+000284                MOVE WS-AI-TARIFA         TO LI-TARIFA
+000285                IF WS-AI-ALERTA = 'S'
+000286                   MOVE 'LIMITADA AO TETO'      TO LI-OBS
+000287                ELSE
+000288                   MOVE SPACES                  TO LI-OBS
+000289                END-IF
+000290                WRITE REG-RELATORIO FROM WS-LINHA-IRD
+000291                      AFTER ADVANCING 1 LINE
+000292                ADD WS-AI-QTD          TO WS-AB-QTD
+000293                ADD WS-AI-BRUTO        TO WS-AB-BRUTO
+000294                ADD WS-AI-INTERCAMBIO  TO WS-AB-INTERCAMBIO
+000295                ADD WS-AI-TARIFA       TO WS-AB-TARIFA
+000296             END-IF
+000297             .
+000298         2600-FIM-FECHAR-IRD.
+000299             EXIT.
+000300
+000301         2700-FECHAR-BANDEIRA.
+000302             MOVE 'TOTAL DA BANDEIRA'   TO LT-DESCRICAO
+000303             MOVE WS-AB-QTD             TO LT-QTD
+000304             MOVE WS-AB-BRUTO           TO LT-BRUTO
+000305             MOVE WS-AB-INTERCAMBIO     TO LT-INTERCAMBIO
+000306             MOVE WS-AB-TARIFA          TO LT-TARIFA
+000307             WRITE REG-RELATORIO FROM WS-LINHA-TOTAL
+000308                   AFTER ADVANCING 2 LINES
+000309        *    O EMISSOR PAGA A BANDEIRA O BRUTO MENOS O INTERCAMBIO QUE
+000310        *    ELE RECEBE, MAIS A TARIFA QUE ELE DEVE
+000311             COMPUTE WS-POSICAO = WS-AB-BRUTO - WS-AB-INTERCAMBIO
+000312                                + WS-AB-TARIFA
+000313             MOVE 'POSICAO DO EMISSOR A PAGAR A BANDEIRA' TO LP-DESCRICAO
+000314             MOVE WS-POSICAO            TO LP-VALOR
+000315             WRITE REG-RELATORIO FROM WS-LINHA-POSICAO
+000316                   AFTER ADVANCING 1 LINE
+000317             DISPLAY 'CICLIQUI - BANDEIRA ' WS-BANDEIRA-ANTERIOR
+000318                     ' A PAGAR: ' LP-VALOR
+000319             ADD WS-AB-QTD          TO WS-AG-QTD
+GnuCOBOL 3.3-dev.0      sistema\work\CICLIQU Wed Nov 18 2026 22:02:37  Page 0008
+
+LINE    PG/LN  A...B............................................................
+
+000320             ADD WS-AB-BRUTO        TO WS-AG-BRUTO
+000321             ADD WS-AB-INTERCAMBIO  TO WS-AG-INTERCAMBIO
+000322             ADD WS-AB-TARIFA       TO WS-AG-TARIFA
+000323             .
+000324         2700-FIM-FECHAR-BANDEIRA.
+000325             EXIT.
+000326
+000327         2800-INICIAR-BANDEIRA.
+000328             MOVE LC-BANDEIRA TO WS-BANDEIRA-ANTERIOR CBB-BANDEIRA
+000329             INITIALIZE WS-ACUM-BANDEIRA
+000330             WRITE REG-RELATORIO FROM WS-CAB-BANDEIRA
+000331                   AFTER ADVANCING 2 LINES
+000332             PERFORM 2900-INICIAR-IRD THRU 2900-FIM-INICIAR-IRD
+000333             .
+000334         2800-FIM-INICIAR-BANDEIRA.
+000335             EXIT.
+000336
+000337         2900-INICIAR-IRD.
+000338             MOVE LC-IRD TO WS-IRD-ANTERIOR
+000339             INITIALIZE WS-ACUM-IRD
+000340             MOVE 'N'    TO WS-AI-ALERTA
+000341             .
+000342         2900-FIM-INICIAR-IRD.
+000343             EXIT.
+000344
+000345         3000-FINALIZAR.
+000346             IF WS-QTD-LIDOS > ZERO
+000347                PERFORM 2600-FECHAR-IRD      THRU 2600-FIM-FECHAR-IRD
+000348                PERFORM 2700-FECHAR-BANDEIRA THRU 2700-FIM-FECHAR-BANDEIRA
+000349             END-IF
+000350             MOVE 'TOTAL GERAL'         TO LT-DESCRICAO
+000351             MOVE WS-AG-QTD             TO LT-QTD
+000352             MOVE WS-AG-BRUTO           TO LT-BRUTO
+000353             MOVE WS-AG-INTERCAMBIO     TO LT-INTERCAMBIO
+000354             MOVE WS-AG-TARIFA          TO LT-TARIFA
+000355             WRITE REG-RELATORIO FROM WS-LINHA-TOTAL
+000356                   AFTER ADVANCING 3 LINES
+000357             COMPUTE WS-POSICAO = WS-AG-BRUTO - WS-AG-INTERCAMBIO
+000358                                + WS-AG-TARIFA
+000359             MOVE 'POSICAO TOTAL DO EMISSOR A PAGAR'   TO LP-DESCRICAO
+000360             MOVE WS-POSICAO            TO LP-VALOR
+000361             WRITE REG-RELATORIO FROM WS-LINHA-POSICAO
+000362                   AFTER ADVANCING 1 LINE
+000363             CLOSE LANCAMENTOS RELATORIO
+000364
+000365             DISPLAY 'CICLIQUI - LANCAMENTOS LIDOS ..: ' WS-QTD-LIDOS
+000366             DISPLAY 'CICLIQUI - LIQUIDADOS .........: ' WS-AG-QTD
+000367             DISPLAY 'CICLIQUI - IRD NAO CADASTRADO .: ' WS-QTD-SEM-IRD
+000368             DISPLAY 'CICLIQUI - ACIMA DO TETO ......: ' WS-QTD-ACIMA-TETO
+000369             DISPLAY 'CICLIQUI - POSICAO TOTAL ......: ' LP-VALOR
+000370        *    CONFERENCIA: LIDOS = LIQUIDADOS + SEM IRD
+000371             EVALUATE TRUE
+GnuCOBOL 3.3-dev.0      sistema\work\CICLIQU Wed Nov 18 2026 22:02:37  Page 0009
+
+LINE    PG/LN  A...B............................................................
+
+000372                WHEN WS-QTD-LIDOS NOT = WS-AG-QTD + WS-QTD-SEM-IRD
+000373                   DISPLAY 'CICLIQUI - CONTADORES NAO FECHAM'
+000374                   MOVE 16 TO RETURN-CODE
+000375                WHEN WS-QTD-SEM-IRD > ZERO
+000376                   MOVE 8 TO RETURN-CODE
+000377                WHEN WS-QTD-ACIMA-TETO > ZERO
+000378                   MOVE 4 TO RETURN-CODE
+000379                WHEN OTHER
+000380                   MOVE 0 TO RETURN-CODE
+000381             END-EVALUATE
+000382             .
+000383         3000-FIM-FINALIZAR.
+000384             EXIT.
+000385
+000386         8000-LER-LANCAMENTO.
+000387             READ LANCAMENTOS
+000388                  AT END
+000389                     CONTINUE
+000390                  NOT AT END
+000391                     ADD 1 TO WS-QTD-LIDOS
+000392             END-READ
+000393             IF NOT WS-FS-LAN-OK AND NOT WS-FS-LAN-FIM
+000394                DISPLAY 'CICLIQUI - ERRO DE READ LANCIN FS: '
+000395                        WS-FS-LANCAMENTO
+000396                PERFORM 9900-ENCERRAR-COM-ERRO
+000397             END-IF
+000398             .
+000399         8000-FIM-LER-LANCAMENTO.
+000400             EXIT.
+000401
+000402         9900-ENCERRAR-COM-ERRO.
+000403        *    ENCERRA COM RC 16 PARA IMPEDIR OS STEPS SEGUINTES
+000404             MOVE 16 TO RETURN-CODE
+000405             STOP RUN
+000406             .
+
+
+0 warnings in compilation group
+0 errors in compilation group

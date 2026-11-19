@@ -1,0 +1,23 @@
+SIM020I SORT EXECUTADO PELO GCSORT (COMPATIVEL COM DFSORT)
+ SORT FIELDS=(80,1,CH,A,78,2,CH,A,1,16,CH,A)
+
+========================================================
+GCSORT Version 01.04.00
+========================================================
+TAKE file name
+sistema\work\JOB00268_STEP040.take
+========================================================
+====================================================================
+ Total Records Number..............:        90
+ Total Records Write Sort..........:         0
+ Total Records Write Output........:        90
+====================================================================
+Start    : Wed Nov 18 21:55:32 2026
+End      : Wed Nov 18 21:55:32 2026
+Elapsed  Time 00hh 00mm 00ss 000ms
+
+GCSORT - Sort OK
+
+
+ICE054I 0 RECORDS - OUT: 90
+ICE052I 0 END OF DFSORT
